@@ -74,6 +74,12 @@
     .station-item:hover {
       background: #f8fafc;
     }
+    .station-item-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: start;
+    }
     .station-name {
       font-size: 13px;
       font-weight: 600;
@@ -85,6 +91,41 @@
       margin-top: 4px;
       line-height: 1.35;
       font-variant-numeric: tabular-nums;
+    }
+    .station-endpoint-toggle {
+      display: inline-flex;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #ffffff;
+      flex: 0 0 auto;
+    }
+    .station-endpoint-button {
+      border: 0;
+      background: #ffffff;
+      color: #475569;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      min-width: 34px;
+      padding: 6px 7px;
+    }
+    .station-endpoint-button + .station-endpoint-button {
+      border-left: 1px solid #cbd5e1;
+    }
+    .station-endpoint-button:hover {
+      background: #f1f5f9;
+    }
+    .station-endpoint-button.is-active {
+      background: #0f172a;
+      color: #ffffff;
+    }
+    .station-endpoint-button[data-role="from"].is-active {
+      background: #15803d;
+    }
+    .station-endpoint-button[data-role="to"].is-active {
+      background: #dc2626;
     }
     .settings-body {
       padding: 14px 16px;
@@ -718,14 +759,28 @@
         item.setAttribute("role", "button");
         item.setAttribute("aria-label", `${p.station_id} ${p.station_name} 선택`);
         item.innerHTML = `
-          <div class="station-name">${p.station_id} ${p.station_name}</div>
-          <div class="station-position">위도 ${latitude.toFixed(7)} · 경도 ${longitude.toFixed(7)}</div>
+          <div class="station-item-main">
+            <div>
+              <div class="station-name">${p.station_id} ${p.station_name}</div>
+              <div class="station-position">위도 ${latitude.toFixed(7)} · 경도 ${longitude.toFixed(7)}</div>
+            </div>
+            <div class="station-endpoint-toggle" aria-label="${p.station_name} 경로 역할">
+              <button class="station-endpoint-button" type="button" data-role="from">출발</button>
+              <button class="station-endpoint-button" type="button" data-role="to">도착</button>
+            </div>
+          </div>
         `;
         item.addEventListener("click", () => toggleStationSelection(p.station_id, true));
         item.addEventListener("keydown", (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
           toggleStationSelection(p.station_id, true);
+        });
+        item.querySelectorAll(".station-endpoint-button").forEach((button) => {
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            setRouteEndpoint(p.station_id, button.dataset.role);
+          });
         });
         stationList.appendChild(item);
         stationItemsById.set(p.station_id, item);
@@ -774,6 +829,40 @@
       return `${p.station_id} ${p.station_name}`;
     }
 
+    function scrollStationItemIntoView(stationId) {
+      const item = stationItemsById.get(stationId);
+      if (!item) return;
+      item.scrollIntoView({
+        block: "center",
+        behavior: "smooth"
+      });
+    }
+
+    function updateStationEndpointButtons() {
+      const fromId = fromStationSelect.value;
+      const toId = toStationSelect.value;
+      stationItemsById.forEach((item, stationId) => {
+        item.querySelectorAll(".station-endpoint-button").forEach((button) => {
+          const isActive =
+            (button.dataset.role === "from" && stationId === fromId) ||
+            (button.dataset.role === "to" && stationId === toId);
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+      });
+    }
+
+    function setRouteEndpoint(stationId, role) {
+      const select = role === "from" ? fromStationSelect : toStationSelect;
+      const oppositeSelect = role === "from" ? toStationSelect : fromStationSelect;
+      select.value = select.value === stationId ? "" : stationId;
+      if (select.value && oppositeSelect.value === select.value) {
+        oppositeSelect.value = "";
+      }
+      updateStationEndpointButtons();
+      updateHighlightControls();
+    }
+
     function setStationSelectionStyles(stationIds) {
       document.body.dataset.selectedStations = Array.from(stationIds).join(",");
       stationMarkersById.forEach((marker, stationId) => {
@@ -820,6 +909,7 @@
         const marker = stationMarkersById.get(stationId);
         if (marker) map.panTo(marker.getLatLng());
       }
+      if (!isOnlySelected) scrollStationItemIntoView(stationId);
       updateHighlightControls();
     }
 
@@ -829,6 +919,7 @@
       const canHighlight = Boolean(fromId && toId && fromId !== toId);
       highlightRouteButton.disabled = !canHighlight;
       clearRouteButton.disabled = !selectedPairId && !fromId && !toId && selectedStationIds.size === 0;
+      updateStationEndpointButtons();
       if (fromId && toId && fromId === toId) {
         routeHighlightStatus.className = "route-status";
         routeHighlightStatus.textContent = "서로 다른 두 역을 선택해주세요.";
