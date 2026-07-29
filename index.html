@@ -69,6 +69,10 @@
       padding: 8px 9px;
       margin-bottom: 6px;
       background: #ffffff;
+      cursor: pointer;
+    }
+    .station-item:hover {
+      background: #f8fafc;
     }
     .station-name {
       font-size: 13px;
@@ -88,6 +92,10 @@
     }
     .field {
       margin-bottom: 18px;
+    }
+    .field-grid {
+      display: grid;
+      gap: 10px;
     }
     .field-label {
       display: block;
@@ -147,6 +155,52 @@
       font-size: 11px;
       line-height: 1.4;
       margin-top: 7px;
+    }
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .secondary-button {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 9px;
+      cursor: pointer;
+    }
+    .secondary-button:hover {
+      background: #f8fafc;
+    }
+    .secondary-button:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+    .route-status {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 10px;
+      min-height: 34px;
+      padding: 8px 9px;
+    }
+    .route-status.is-active {
+      border-color: #fecaca;
+      background: #fff7f7;
+      color: #991b1b;
+      font-weight: 600;
+    }
+    .station-item.is-selected {
+      border-color: #ef4444;
+      background: #fff7f7;
+      box-shadow: inset 3px 0 0 #ef4444;
     }
     @media (max-width: 860px) {
       #app {
@@ -337,6 +391,13 @@
       padding: 3px 4px;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
     }
+    .station-label.is-selected {
+      border-color: rgba(153, 27, 27, 0.45);
+      color: #991b1b;
+      font-weight: 700;
+      padding: 4px 6px;
+      box-shadow: 0 2px 6px rgba(153, 27, 27, 0.22);
+    }
     .popup-title {
       font-weight: 600;
       margin-bottom: 4px;
@@ -365,6 +426,22 @@
           <div class="panel-subtitle">배경지도와 표시 기준</div>
         </div>
         <div class="settings-body">
+          <div class="field">
+            <div class="field-label">경로 하이라이트</div>
+            <div class="field-grid">
+              <select id="from-station-select" aria-label="출발역 선택">
+                <option value="">출발역 선택</option>
+              </select>
+              <select id="to-station-select" aria-label="도착역 선택">
+                <option value="">도착역 선택</option>
+              </select>
+            </div>
+            <div class="action-row">
+              <button id="highlight-route-button" class="secondary-button" type="button" disabled>경로 보기</button>
+              <button id="clear-route-button" class="secondary-button" type="button" disabled>해제</button>
+            </div>
+            <div id="route-highlight-status" class="route-status">두 역을 선택하면 해당 pair의 경로가 강조됩니다.</div>
+          </div>
           <div class="field">
             <label class="field-label" for="basemap-select">지도 선택</label>
             <select id="basemap-select">
@@ -439,15 +516,61 @@
       osmBase
     };
     let activeBaseLayer = vworldBase;
+    let selectedPairId = null;
+    let selectedStationIds = new Set();
+
+    const normalRouteStyle = {
+      color: "#2563eb",
+      weight: 2.4,
+      opacity: 0.34
+    };
+    const dimRouteStyle = {
+      color: "#94a3b8",
+      weight: 1.2,
+      opacity: 0.08
+    };
+    const highlightRouteStyle = {
+      color: "#dc2626",
+      weight: 7,
+      opacity: 0.96
+    };
+    const normalStationStyle = {
+      radius: 5,
+      color: "#111827",
+      weight: 1.5,
+      fillColor: "#ef4444",
+      fillOpacity: 0.95
+    };
+    const selectedStationStyle = {
+      radius: 7,
+      color: "#991b1b",
+      weight: 2.5,
+      fillColor: "#f97316",
+      fillOpacity: 1
+    };
+
+    const stationsById = new Map(
+      stationData.features.map((feature) => [feature.properties.station_id, feature])
+    );
+    const stationMarkersById = new Map();
+    const stationItemsById = new Map();
+    const routeLayersByPairId = new Map();
+
+    function pairIdForStations(firstId, secondId) {
+      return [firstId, secondId].sort().join("__");
+    }
+
+    function routeStyle(feature) {
+      if (!selectedPairId) return normalRouteStyle;
+      const pairId = feature?.properties?.pair_id;
+      return pairId === selectedPairId ? highlightRouteStyle : dimRouteStyle;
+    }
 
     const routeLayer = L.geoJSON(routeData, {
-      style: () => ({
-        color: "#2563eb",
-        weight: 2.4,
-        opacity: 0.34
-      }),
+      style: routeStyle,
       onEachFeature: (feature, layer) => {
         const p = feature.properties || {};
+        if (p.pair_id) routeLayersByPairId.set(p.pair_id, layer);
         layer.bindPopup(`
           <div class="popup-title">${p.pair_id || ""}</div>
           <div class="popup-meta">
@@ -459,48 +582,181 @@
     }).addTo(map);
 
     const stationList = document.getElementById("station-list");
-    stationData.features
+    const sortedStationFeatures = stationData.features
       .slice()
-      .sort((a, b) => a.properties.station_order - b.properties.station_order)
+      .sort((a, b) => a.properties.station_order - b.properties.station_order);
+    sortedStationFeatures
       .forEach((feature) => {
         const p = feature.properties;
         const [longitude, latitude] = feature.geometry.coordinates;
         const item = document.createElement("div");
         item.className = "station-item";
+        item.dataset.stationId = p.station_id;
+        item.tabIndex = 0;
+        item.setAttribute("role", "button");
+        item.setAttribute("aria-label", `${p.station_id} ${p.station_name} 선택`);
         item.innerHTML = `
           <div class="station-name">${p.station_id} ${p.station_name}</div>
           <div class="station-position">위도 ${latitude.toFixed(7)} · 경도 ${longitude.toFixed(7)}</div>
         `;
+        item.addEventListener("click", () => toggleStationSelection(p.station_id, true));
+        item.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          toggleStationSelection(p.station_id, true);
+        });
         stationList.appendChild(item);
+        stationItemsById.set(p.station_id, item);
       });
 
     const stationLayer = L.geoJSON(stationData, {
       pointToLayer: (feature, latlng) => {
-        return L.circleMarker(latlng, {
-          radius: 5,
-          color: "#111827",
-          weight: 1.5,
-          fillColor: "#ef4444",
-          fillOpacity: 0.95
-        });
+        return L.circleMarker(latlng, normalStationStyle);
       },
       onEachFeature: (feature, layer) => {
         const p = feature.properties;
+        stationMarkersById.set(p.station_id, layer);
         layer.bindTooltip(`${p.station_id}`, {
           permanent: true,
           direction: "top",
           offset: [0, -7],
           className: "station-label"
         });
-        layer.bindPopup(`
-          <div class="popup-title">${p.station_id} ${p.station_name}</div>
-          <div class="popup-meta">
-            순번: ${p.station_order}<br>
-            좌표 보정: ${p.coordinate_adjusted}
-          </div>
-        `);
+        layer.on("click", () => toggleStationSelection(p.station_id, false));
       }
     }).addTo(map);
+
+    const fromStationSelect = document.getElementById("from-station-select");
+    const toStationSelect = document.getElementById("to-station-select");
+    const highlightRouteButton = document.getElementById("highlight-route-button");
+    const clearRouteButton = document.getElementById("clear-route-button");
+    const routeHighlightStatus = document.getElementById("route-highlight-status");
+
+    function stationOption(feature) {
+      const p = feature.properties;
+      const option = document.createElement("option");
+      option.value = p.station_id;
+      option.textContent = `${p.station_id} ${p.station_name}`;
+      return option;
+    }
+
+    sortedStationFeatures.forEach((feature) => {
+      fromStationSelect.appendChild(stationOption(feature));
+      toStationSelect.appendChild(stationOption(feature));
+    });
+
+    function stationLabel(stationId) {
+      const feature = stationsById.get(stationId);
+      if (!feature) return stationId;
+      const p = feature.properties;
+      return `${p.station_id} ${p.station_name}`;
+    }
+
+    function setStationSelectionStyles(stationIds) {
+      document.body.dataset.selectedStations = Array.from(stationIds).join(",");
+      stationMarkersById.forEach((marker, stationId) => {
+        const isSelected = stationIds.has(stationId);
+        const feature = stationsById.get(stationId);
+        const label = isSelected && feature
+          ? `${stationId} ${feature.properties.station_name}`
+          : stationId;
+        marker.setStyle(isSelected ? selectedStationStyle : normalStationStyle);
+        marker.setTooltipContent(label);
+        const tooltip = marker.getTooltip();
+        if (tooltip) {
+          tooltip.options.className = isSelected
+            ? "station-label is-selected"
+            : "station-label";
+          if (tooltip.getElement()) {
+            tooltip.getElement().className = `leaflet-tooltip ${tooltip.options.className}`;
+          }
+        }
+        if (isSelected) marker.bringToFront();
+      });
+      stationItemsById.forEach((item, stationId) => {
+        item.classList.toggle("is-selected", stationIds.has(stationId));
+        item.setAttribute("aria-pressed", stationIds.has(stationId) ? "true" : "false");
+      });
+    }
+
+    function clearRouteOnly() {
+      selectedPairId = null;
+      fromStationSelect.value = "";
+      toStationSelect.value = "";
+      routeLayer.setStyle(routeStyle);
+      routeHighlightStatus.className = "route-status";
+      routeHighlightStatus.textContent = "두 역을 선택하면 해당 pair의 경로가 강조됩니다.";
+    }
+
+    function toggleStationSelection(stationId, panToStation) {
+      const isOnlySelected = selectedStationIds.size === 1 && selectedStationIds.has(stationId);
+      clearRouteOnly();
+      selectedStationIds = isOnlySelected ? new Set() : new Set([stationId]);
+      setStationSelectionStyles(selectedStationIds);
+      if (!isOnlySelected && panToStation) {
+        const marker = stationMarkersById.get(stationId);
+        if (marker) map.panTo(marker.getLatLng());
+      }
+      updateHighlightControls();
+    }
+
+    function updateHighlightControls() {
+      const fromId = fromStationSelect.value;
+      const toId = toStationSelect.value;
+      const canHighlight = Boolean(fromId && toId && fromId !== toId);
+      highlightRouteButton.disabled = !canHighlight;
+      clearRouteButton.disabled = !selectedPairId && !fromId && !toId && selectedStationIds.size === 0;
+      if (fromId && toId && fromId === toId) {
+        routeHighlightStatus.className = "route-status";
+        routeHighlightStatus.textContent = "서로 다른 두 역을 선택해주세요.";
+      } else if (!selectedPairId) {
+        routeHighlightStatus.className = "route-status";
+        routeHighlightStatus.textContent = "두 역을 선택하면 해당 pair의 경로가 강조됩니다.";
+      }
+    }
+
+    function clearRouteHighlight() {
+      clearRouteOnly();
+      selectedStationIds = new Set();
+      setStationSelectionStyles(selectedStationIds);
+      updateHighlightControls();
+    }
+
+    function highlightSelectedRoute() {
+      const fromId = fromStationSelect.value;
+      const toId = toStationSelect.value;
+      if (!fromId || !toId || fromId === toId) {
+        updateHighlightControls();
+        return;
+      }
+      selectedPairId = pairIdForStations(fromId, toId);
+      const highlightedLayer = routeLayersByPairId.get(selectedPairId);
+      if (!highlightedLayer) {
+        routeHighlightStatus.className = "route-status";
+        routeHighlightStatus.textContent = `${selectedPairId} 경로를 찾지 못했습니다.`;
+        return;
+      }
+      routeLayer.setStyle(routeStyle);
+      highlightedLayer.bringToFront();
+      selectedStationIds = new Set([fromId, toId]);
+      setStationSelectionStyles(selectedStationIds);
+
+      const p = highlightedLayer.feature.properties || {};
+      routeHighlightStatus.className = "route-status is-active";
+      routeHighlightStatus.textContent =
+        `${stationLabel(fromId)} ↔ ${stationLabel(toId)} · ` +
+        `${Number(p.distance_m || 0).toLocaleString("ko-KR")} m`;
+      map.fitBounds(highlightedLayer.getBounds().pad(0.18), {
+        maxZoom: 15
+      });
+      updateHighlightControls();
+    }
+
+    fromStationSelect.addEventListener("change", updateHighlightControls);
+    toStationSelect.addEventListener("change", updateHighlightControls);
+    highlightRouteButton.addEventListener("click", highlightSelectedRoute);
+    clearRouteButton.addEventListener("click", clearRouteHighlight);
+    updateHighlightControls();
 
     document.getElementById("basemap-select").addEventListener("change", (event) => {
       const nextLayer = baseLayers[event.target.value];
@@ -513,6 +769,8 @@
 
     map.setView(siheungCenter, minimumCityZoom);
     window.__siheungMap = map;
+    window.__siheungStationMarkersById = stationMarkersById;
+    document.body.dataset.mapReady = "true";
   </script>
 </body>
 </html>
