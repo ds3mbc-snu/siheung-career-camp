@@ -565,6 +565,7 @@
     let activeBaseLayer = vworldBase;
     let selectedPairId = null;
     let selectedStationIds = new Set();
+    let manuallySelectedStationIds = new Set();
     let activeWeightMode = "none";
 
     const normalRouteStyle = {
@@ -855,6 +856,22 @@
       });
     }
 
+    function endpointStationIds() {
+      const stationIds = new Set();
+      if (fromStationSelect.value) stationIds.add(fromStationSelect.value);
+      if (toStationSelect.value) stationIds.add(toStationSelect.value);
+      return stationIds;
+    }
+
+    function displayedStationIds() {
+      return new Set([...manuallySelectedStationIds, ...endpointStationIds()]);
+    }
+
+    function syncStationSelectionStyles() {
+      selectedStationIds = displayedStationIds();
+      setStationSelectionStyles(selectedStationIds);
+    }
+
     function setRouteEndpoint(stationId, role) {
       const select = role === "from" ? fromStationSelect : toStationSelect;
       const oppositeSelect = role === "from" ? toStationSelect : fromStationSelect;
@@ -862,6 +879,7 @@
       if (select.value && oppositeSelect.value === select.value) {
         oppositeSelect.value = "";
       }
+      syncStationSelectionStyles();
       updateStationEndpointButtons();
       updateHighlightControls();
     }
@@ -893,10 +911,12 @@
       });
     }
 
-    function clearRouteOnly() {
+    function clearRouteOnly(clearEndpoints = true) {
       selectedPairId = null;
-      fromStationSelect.value = "";
-      toStationSelect.value = "";
+      if (clearEndpoints) {
+        fromStationSelect.value = "";
+        toStationSelect.value = "";
+      }
       detailLayerGroup.clearLayers();
       routeLayer.setStyle(summaryRouteStyle);
       routeHighlightStatus.className = "route-status";
@@ -904,15 +924,19 @@
     }
 
     function toggleStationSelection(stationId, panToStation) {
-      const isOnlySelected = selectedStationIds.size === 1 && selectedStationIds.has(stationId);
-      clearRouteOnly();
-      selectedStationIds = isOnlySelected ? new Set() : new Set([stationId]);
-      setStationSelectionStyles(selectedStationIds);
-      if (!isOnlySelected && panToStation) {
+      const isEndpoint = endpointStationIds().has(stationId);
+      const isManualOnlySelected =
+        manuallySelectedStationIds.size === 1 && manuallySelectedStationIds.has(stationId);
+      clearRouteOnly(false);
+      if (!isEndpoint) {
+        manuallySelectedStationIds = isManualOnlySelected ? new Set() : new Set([stationId]);
+      }
+      syncStationSelectionStyles();
+      if (!(isManualOnlySelected && !isEndpoint) && panToStation) {
         const marker = stationMarkersById.get(stationId);
         if (marker) map.panTo(marker.getLatLng());
       }
-      if (!isOnlySelected) scrollStationItemIntoView(stationId);
+      if (!(isManualOnlySelected && !isEndpoint)) scrollStationItemIntoView(stationId);
       updateHighlightControls();
     }
 
@@ -922,6 +946,7 @@
       const canHighlight = Boolean(fromId && toId && fromId !== toId);
       highlightRouteButton.disabled = !canHighlight;
       clearRouteButton.disabled = !selectedPairId && !fromId && !toId && selectedStationIds.size === 0;
+      syncStationSelectionStyles();
       updateStationEndpointButtons();
       if (fromId && toId && fromId === toId) {
         routeHighlightStatus.className = "route-status";
@@ -934,6 +959,7 @@
 
     function clearRouteHighlight() {
       clearRouteOnly();
+      manuallySelectedStationIds = new Set();
       selectedStationIds = new Set();
       setStationSelectionStyles(selectedStationIds);
       updateHighlightControls();
@@ -956,8 +982,8 @@
       routeLayer.setStyle(summaryRouteStyle);
       highlightedLayer.bringToFront();
       drawSelectedDetailLayer(selectedPairId);
-      selectedStationIds = new Set([fromId, toId]);
-      setStationSelectionStyles(selectedStationIds);
+      manuallySelectedStationIds = new Set();
+      syncStationSelectionStyles();
 
       const p = highlightedLayer.feature.properties || {};
       const metrics = pairMetrics(selectedPairId);
