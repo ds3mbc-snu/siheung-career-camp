@@ -93,12 +93,15 @@
       font-variant-numeric: tabular-nums;
     }
     .station-endpoint-toggle {
-      display: inline-flex;
+      display: none;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       overflow: hidden;
       background: #ffffff;
       flex: 0 0 auto;
+    }
+    .station-item.is-selected .station-endpoint-toggle {
+      display: inline-flex;
     }
     .station-endpoint-button {
       border: 0;
