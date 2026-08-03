@@ -1,7 +1,7 @@
 {
   "status": "PASS",
   "route_feature_count": 1485,
-  "used_feature_count": 1540,
+  "used_feature_count": 1542,
   "api_calls": 0,
   "geometry_source": "data/routes/route_paths.geojson"
 }
