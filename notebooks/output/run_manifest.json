@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "created_at": "2026-08-03T13:26:59.561022+00:00",
+  "station_count": 55,
+  "pair_count": 1485,
+  "notebooks": [
+    "02_candidate_scenario.ipynb",
+    "03_structure_alternatives.ipynb",
+    "04_weight_sensitivity.ipynb",
+    "05_route_geometry_and_interactive_weights.ipynb"
+  ],
+  "api_calls": 0,
+  "limitations": [
+    "W3 is PRELIMINARY_POINT_BUFFER_PROXY, not official protected-zone geometry.",
+    "W4 is PRELIMINARY_90M.",
+    "Lecture structures are comparative heuristics, not final tram alignments."
+  ]
+}
