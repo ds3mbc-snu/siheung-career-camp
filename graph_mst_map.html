@@ -105,6 +105,45 @@
     .swatch.mst {
       background: #0284c7;
     }
+    .weight-panel {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .weight-row {
+      display: grid;
+      gap: 7px;
+      grid-template-columns: 54px 1fr 40px;
+      align-items: center;
+      margin-bottom: 9px;
+    }
+    .weight-row:last-child {
+      margin-bottom: 0;
+    }
+    .weight-row label {
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .weight-row input {
+      accent-color: #0284c7;
+      width: 100%;
+    }
+    .weight-value {
+      color: #0f172a;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .weight-summary {
+      background: #f8fafc;
+      border-radius: 6px;
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.45;
+      margin-top: 10px;
+      padding: 8px;
+    }
     select, button {
       box-sizing: border-box;
       font: inherit;
@@ -397,6 +436,32 @@
           </label>
         </div>
         <div class="field">
+          <div class="field-label">가중치 비율</div>
+          <div class="weight-panel">
+            <div class="weight-row">
+              <label for="weight-distance">W1 거리</label>
+              <input id="weight-distance" class="weight-input" data-weight-key="distance" type="range" min="0" max="1" step="0.05" value="0.25">
+              <span id="weight-distance-value" class="weight-value">0.25</span>
+            </div>
+            <div class="weight-row">
+              <label for="weight-lane">W2 차로</label>
+              <input id="weight-lane" class="weight-input" data-weight-key="lane" type="range" min="0" max="1" step="0.05" value="0.25">
+              <span id="weight-lane-value" class="weight-value">0.25</span>
+            </div>
+            <div class="weight-row">
+              <label for="weight-w3">W3 제약</label>
+              <input id="weight-w3" class="weight-input" data-weight-key="protection" type="range" min="0" max="1" step="0.05" value="0.25">
+              <span id="weight-w3-value" class="weight-value">0.25</span>
+            </div>
+            <div class="weight-row">
+              <label for="weight-slope">W4 경사</label>
+              <input id="weight-slope" class="weight-input" data-weight-key="slope" type="range" min="0" max="1" step="0.05" value="0.25">
+              <span id="weight-slope-value" class="weight-value">0.25</span>
+            </div>
+            <div id="weight-summary" class="weight-summary"></div>
+          </div>
+        </div>
+        <div class="field">
           <label class="field-label" for="basemap-select">지도 선택</label>
           <select id="basemap-select">
             <option value="vworldBase">VWorld 일반지도</option>
@@ -439,7 +504,6 @@
     const data = window.__siheungGraphMstData;
     const stationData = data.stationData;
     const routeData = data.routeData;
-    const mstPairIds = new Set(data.mstPairIds);
     const siheungBounds = L.latLngBounds(
       [37.27, 126.63],
       [37.50, 126.94]
@@ -478,8 +542,15 @@
     baseLayers.vworldBase.addTo(map);
 
     const graphFeatures = routeData.features;
-    const mstFeatures = routeData.features.filter((feature) => mstPairIds.has(feature.properties.pair_id));
+    let mstFeatures = [];
     const detailBox = document.getElementById("detail-box");
+    const weightSummary = document.getElementById("weight-summary");
+    const weightValueElements = {
+      distance: document.getElementById("weight-distance-value"),
+      lane: document.getElementById("weight-lane-value"),
+      protection: document.getElementById("weight-w3-value"),
+      slope: document.getElementById("weight-slope-value"),
+    };
     const normalStationStyle = {
       radius: 5,
       color: "#111827",
@@ -506,7 +577,7 @@
       detailBox.innerHTML = `
         <div class="detail-title">${layerName} · ${properties.pair_id}</div>
         <div>${properties.from_station_name} → ${properties.to_station_name}</div>
-        <div>거리: ${meters(properties.distance_m)} · 비용: ${cost(properties.scenario_cost)}</div>
+        <div>거리: ${meters(properties.distance_m)} · 현재 비용: ${cost(properties.current_cost)}</div>
         <div>평균 차로 수: ${lane(properties.w2_average_lanes)} · W3: ${cost(properties.w3_protection_proxy)} · 경사: ${lane(properties.w4_average_absolute_grade_pct)}%</div>
       `;
     }
@@ -533,23 +604,8 @@
       },
     }).addTo(map);
 
-    const mstCasingLayer = makeLayer(mstFeatures, {
-      name: "MST",
-      style: {
-        color: "#ffffff",
-        weight: 12,
-        opacity: 0.96,
-      },
-    });
-
-    const mstLayer = makeLayer(mstFeatures, {
-      name: "MST",
-      style: {
-        color: "#0284c7",
-        weight: 7.5,
-        opacity: 0.95,
-      },
-    });
+    let mstCasingLayer = L.layerGroup();
+    let mstLayer = L.layerGroup();
 
     const stationLayer = L.geoJSON(stationData, {
       pointToLayer(feature, latlng) {
@@ -568,6 +624,143 @@
 
     function selectedMode() {
       return document.querySelector('input[name="display-mode"]:checked').value;
+    }
+
+    const maxDistance = Math.max(...graphFeatures.map((feature) => Number(feature.properties.distance_m) || 0));
+    const maxProtection = Math.max(...graphFeatures.map((feature) => Number(feature.properties.w3_protection_proxy) || 0));
+
+    function normalizedWeights() {
+      const raw = {};
+      document.querySelectorAll(".weight-input").forEach((input) => {
+        raw[input.dataset.weightKey] = Number(input.value) || 0;
+      });
+      const sum = raw.distance + raw.lane + raw.protection + raw.slope;
+      if (sum <= 0) {
+        return { distance: 0.25, lane: 0.25, protection: 0.25, slope: 0.25 };
+      }
+      return {
+        distance: raw.distance / sum,
+        lane: raw.lane / sum,
+        protection: raw.protection / sum,
+        slope: raw.slope / sum,
+      };
+    }
+
+    function lanePenalty(lanes) {
+      const value = Number(lanes);
+      if (!Number.isFinite(value) || value <= 0) return 1;
+      return Math.min(1, 1 / value);
+    }
+
+    function slopePenalty(gradePct) {
+      const value = Number(gradePct) || 0;
+      if (value > 6) return 30;
+      return value / 6;
+    }
+
+    function currentCost(properties, weights) {
+      const distanceNorm = maxDistance > 0 ? Number(properties.distance_m) / maxDistance : 0;
+      const protectionNorm = maxProtection > 0 ? Number(properties.w3_protection_proxy) / maxProtection : 0;
+      return (
+        weights.distance * distanceNorm
+        + weights.lane * lanePenalty(properties.w2_average_lanes)
+        + weights.protection * protectionNorm
+        + weights.slope * slopePenalty(properties.w4_average_absolute_grade_pct)
+      );
+    }
+
+    function recomputeCosts() {
+      const weights = normalizedWeights();
+      graphFeatures.forEach((feature) => {
+        feature.properties.current_cost = currentCost(feature.properties, weights);
+      });
+      weightSummary.textContent = `적용 비율: W1 ${weights.distance.toFixed(2)}, W2 ${weights.lane.toFixed(2)}, W3 ${weights.protection.toFixed(2)}, W4 ${weights.slope.toFixed(2)}`;
+    }
+
+    class UnionFind {
+      constructor(nodes) {
+        this.parent = new Map(nodes.map((node) => [node, node]));
+        this.rank = new Map(nodes.map((node) => [node, 0]));
+      }
+      find(node) {
+        const parent = this.parent.get(node);
+        if (parent !== node) {
+          const root = this.find(parent);
+          this.parent.set(node, root);
+          return root;
+        }
+        return parent;
+      }
+      union(a, b) {
+        const rootA = this.find(a);
+        const rootB = this.find(b);
+        if (rootA === rootB) return false;
+        const rankA = this.rank.get(rootA);
+        const rankB = this.rank.get(rootB);
+        if (rankA < rankB) {
+          this.parent.set(rootA, rootB);
+        } else if (rankA > rankB) {
+          this.parent.set(rootB, rootA);
+        } else {
+          this.parent.set(rootB, rootA);
+          this.rank.set(rootA, rankA + 1);
+        }
+        return true;
+      }
+    }
+
+    function recomputeMst() {
+      const stationIds = stationData.features.map((feature) => feature.properties.station_id);
+      const unionFind = new UnionFind(stationIds);
+      const sorted = [...graphFeatures].sort((a, b) => {
+        const costDiff = a.properties.current_cost - b.properties.current_cost;
+        if (Math.abs(costDiff) > 1e-12) return costDiff;
+        return Number(a.properties.distance_m) - Number(b.properties.distance_m);
+      });
+      const selected = [];
+      for (const feature of sorted) {
+        const p = feature.properties;
+        const pairParts = p.pair_id.split("__");
+        if (unionFind.union(pairParts[0], pairParts[1])) {
+          selected.push(feature);
+          if (selected.length === stationIds.length - 1) break;
+        }
+      }
+      mstFeatures = selected;
+    }
+
+    function rebuildMstLayers() {
+      const hadCasing = map.hasLayer(mstCasingLayer);
+      const hadMst = map.hasLayer(mstLayer);
+      if (hadCasing) mstCasingLayer.removeFrom(map);
+      if (hadMst) mstLayer.removeFrom(map);
+      mstCasingLayer = makeLayer(mstFeatures, {
+        name: "MST",
+        style: {
+          color: "#ffffff",
+          weight: 12,
+          opacity: 0.96,
+        },
+      });
+      mstLayer = makeLayer(mstFeatures, {
+        name: "MST",
+        style: {
+          color: "#0284c7",
+          weight: 7.5,
+          opacity: 0.95,
+        },
+      });
+    }
+
+    function updateWeightsAndMst() {
+      document.querySelectorAll(".weight-input").forEach((input) => {
+        weightValueElements[input.dataset.weightKey].textContent = Number(input.value).toFixed(2);
+      });
+      recomputeCosts();
+      recomputeMst();
+      rebuildMstLayers();
+      document.getElementById("mst-count").textContent = mstFeatures.length.toLocaleString("ko-KR");
+      setDisplayMode();
     }
 
     function setDisplayMode() {
@@ -598,6 +791,9 @@
     document.querySelectorAll('input[name="display-mode"]').forEach((input) => {
       input.addEventListener("change", setDisplayMode);
     });
+    document.querySelectorAll(".weight-input").forEach((input) => {
+      input.addEventListener("input", updateWeightsAndMst);
+    });
     document.getElementById("basemap-select").addEventListener("change", (event) => {
       for (const layer of Object.values(baseLayers)) {
         if (map.hasLayer(layer)) map.removeLayer(layer);
@@ -615,7 +811,7 @@
 
     document.getElementById("graph-count").textContent = data.summary.graph_edge_count.toLocaleString("ko-KR");
     document.getElementById("mst-count").textContent = data.summary.mst_edge_count.toLocaleString("ko-KR");
-    setDisplayMode();
+    updateWeightsAndMst();
     setTimeout(() => map.invalidateSize(), 0);
   </script>
 </body>
