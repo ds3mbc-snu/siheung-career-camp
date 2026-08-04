@@ -4,7 +4,7 @@
   "station_count": 55,
   "active_station_count": 55,
   "unresolved_station_ids": [],
-  "eligible_edge_count": 1061,
+  "eligible_edge_count": 1485,
   "candidate_edge_count": 54,
   "weights": {
     "distance": 0.25,
@@ -12,13 +12,12 @@
     "protection_proxy": 0.25,
     "preliminary_slope": 0.25
   },
-  "maximum_edge_distance_km": 12.0,
   "minimum_average_lanes": 0.0,
   "normalization_note": "W1,W3 divide by max; W2 uses inverse average lanes; W4 uses grade/6 up to 6% and assigns 30 when grade exceeds 6%.",
-  "average_shortest_path_km": 20.206091582491585,
-  "diameter_km": 44.179,
-  "mean_distance_stretch": 2.8117778877695137,
-  "max_distance_stretch": 34.675324675324674,
+  "average_shortest_path_km": 24.31858451178451,
+  "diameter_km": 56.92700000000001,
+  "mean_distance_stretch": 3.5834303825815472,
+  "max_distance_stretch": 67.68983957219251,
   "w3_note": "W3 is PRELIMINARY_POINT_BUFFER_PROXY, not official protected-zone geometry.",
   "w4_note": "W4 is PRELIMINARY_90M."
 }
