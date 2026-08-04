@@ -539,13 +539,13 @@
           <div class="weight-panel">
             <div class="weight-row">
               <label for="weight-distance">W1 거리</label>
-              <input id="weight-distance" class="weight-input" data-weight-key="distance" type="range" min="0" max="1" step="0.05" value="0.25">
-              <span id="weight-distance-value" class="weight-value">0.25</span>
+              <input id="weight-distance" class="weight-input" data-weight-key="distance" type="range" min="0" max="1" step="0.05" value="0.15">
+              <span id="weight-distance-value" class="weight-value">0.15</span>
             </div>
             <div class="weight-row">
               <label for="weight-lane">W2 차로</label>
-              <input id="weight-lane" class="weight-input" data-weight-key="lane" type="range" min="0" max="1" step="0.05" value="0.25">
-              <span id="weight-lane-value" class="weight-value">0.25</span>
+              <input id="weight-lane" class="weight-input" data-weight-key="lane" type="range" min="0" max="1" step="0.05" value="0.40">
+              <span id="weight-lane-value" class="weight-value">0.40</span>
             </div>
             <div class="weight-row">
               <label for="weight-w3">W3 제약</label>
@@ -554,8 +554,8 @@
             </div>
             <div class="weight-row">
               <label for="weight-slope">W4 경사</label>
-              <input id="weight-slope" class="weight-input" data-weight-key="slope" type="range" min="0" max="1" step="0.05" value="0.25">
-              <span id="weight-slope-value" class="weight-value">0.25</span>
+              <input id="weight-slope" class="weight-input" data-weight-key="slope" type="range" min="0" max="1" step="0.05" value="0.20">
+              <span id="weight-slope-value" class="weight-value">0.20</span>
             </div>
             <div id="weight-summary" class="weight-summary"></div>
           </div>
@@ -815,7 +815,7 @@
       });
       const sum = raw.distance + raw.lane + raw.protection + raw.slope;
       if (sum <= 0) {
-        return { distance: 0.25, lane: 0.25, protection: 0.25, slope: 0.25 };
+        return { distance: 0.15, lane: 0.40, protection: 0.25, slope: 0.20 };
       }
       return {
         distance: raw.distance / sum,
