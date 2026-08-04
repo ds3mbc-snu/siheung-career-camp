@@ -13,11 +13,13 @@
     "preliminary_slope": 0.25
   },
   "maximum_edge_distance_km": 12.0,
+  "minimum_average_lanes": 0.0,
+  "normalization_note": "W1,W3 divide by max; W2 uses inverse average lanes; W4 uses grade/6 up to 6% and assigns 30 when grade exceeds 6%.",
   "extra_edge_count": 30,
-  "average_shortest_path_km": 17.096105050505052,
-  "diameter_km": 37.907000000000004,
-  "mean_distance_stretch": 2.4864884902010935,
-  "max_distance_stretch": 53.08229813664597,
+  "average_shortest_path_km": 17.64305925925926,
+  "diameter_km": 39.947,
+  "mean_distance_stretch": 2.442298540894664,
+  "max_distance_stretch": 34.675324675324674,
   "w3_note": "W3 is PRELIMINARY_POINT_BUFFER_PROXY, not official protected-zone geometry.",
   "w4_note": "W4 is PRELIMINARY_90M."
 }

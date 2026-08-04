@@ -78,7 +78,7 @@ jupyter lab
 3. `05_weight_sensitivity.ipynb`
 4. `06_route_geometry_and_interactive_weights.ipynb`
 
-노트북을 연 뒤에는 상단 메뉴에서 `Run` → `Run All Cells`를 누르면 전체 셀이 순서대로 실행됩니다.
+노트북을 연 뒤에는 상단 메뉴에서 `Run` -> `Run All Cells`를 누르면 전체 셀이 순서대로 실행됩니다.
 
 ### 5. 실행이 안 될 때
 
@@ -86,6 +86,13 @@ jupyter lab
 - `output` 폴더를 찾을 수 없다는 오류가 나오면 `notebooks` 폴더 안에서 Jupyter를 실행했는지 확인합니다.
 - ZIP 압축을 풀지 않고 실행하면 파일을 제대로 읽지 못할 수 있습니다. 반드시 압축을 푼 뒤 실행합니다.
 - 실행 중 경고가 떠도 결과 표와 그림이 보이면 수업 진행에는 문제가 없습니다.
+
+## 현재 composite cost 정규화
+
+- W1 거리: `거리 / 분석 대상 최대 거리`
+- W2 차로 수: `1 / 평균 차로 수`; `MIN_AVERAGE_LANES`를 올리면 좁은 도로를 후보에서 제외할 수 있습니다.
+- W3 보호구역 proxy: `proxy / 분석 대상 최대 proxy`
+- W4 경사도: 국내 운영 기준 6%를 기준으로 `경사도 / 6`; 6% 초과 값은 최종 penalty 값 `30`으로 대치합니다.
 
 ## 주의
 

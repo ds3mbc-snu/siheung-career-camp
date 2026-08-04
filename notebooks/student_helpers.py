@@ -67,7 +67,6 @@ def as_float(row: dict[str, str], key: str) -> float:
 
 
 def load_current_data(project_root: Path) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    station_index = project_root / "station_index.csv"
     if (project_root / "data/routes/routes_long.csv").is_file():
         stations = read_csv(project_root / "data/routes/station_index.csv")
         w1 = read_csv(project_root / "data/routes/routes_long.csv")
@@ -120,13 +119,6 @@ def load_current_data(project_root: Path) -> tuple[list[dict[str, object]], list
                 "station_name": edge["to_station_name"],
             }
         stations = [by_id[key] for key in sorted(by_id)]
-        if station_index.is_file():
-            station_meta = {str(row["station_id"]): row for row in read_csv(station_index)}
-            for station in stations:
-                meta = station_meta.get(str(station["station_id"]))
-                if meta:
-                    station["latitude"] = float(meta["latitude"])
-                    station["longitude"] = float(meta["longitude"])
     return stations, edges
 
 
@@ -141,6 +133,7 @@ def numeric_edge_columns() -> list[str]:
         "w3_disabled_protection_proxy",
         "w4_average_absolute_grade_pct",
         "distance_norm",
+        "lane_inverse_norm",
         "lane_penalty_norm",
         "protection_norm",
         "slope_norm",
@@ -165,21 +158,55 @@ def minmax(values: list[float]) -> list[float]:
     return [(value - low) / (high - low) for value in values]
 
 
-def score_edges(edges: list[dict[str, object]], weights: dict[str, float]) -> list[dict[str, object]]:
-    distance = minmax([float(edge["w1_distance_m"]) for edge in edges])
-    lane_penalty = [1.0 - value for value in minmax([float(edge["w2_average_lanes"]) for edge in edges])]
-    protection = minmax([float(edge["w3_protection_proxy"]) for edge in edges])
-    slope = minmax([float(edge["w4_average_absolute_grade_pct"]) for edge in edges])
+def max_scale(values: list[float]) -> list[float]:
+    values = [float(value) for value in values]
+    high = max(values)
+    if high <= 0 or math.isclose(high, 0.0):
+        return [0.0 for _ in values]
+    return [value / high for value in values]
+
+
+def inverse_lane_penalty(lanes: float) -> float:
+    lanes = float(lanes)
+    if lanes <= 0:
+        return 1.0
+    return min(1.0, 1.0 / lanes)
+
+
+def slope_limit_penalty(grade_pct: float, limit_pct: float = 6.0, excess_penalty: float = 30.0) -> float:
+    grade_pct = float(grade_pct)
+    if grade_pct > limit_pct:
+        return excess_penalty
+    return grade_pct / limit_pct
+
+
+def score_edges(
+    edges: list[dict[str, object]],
+    weights: dict[str, float],
+    min_average_lanes: float = 0.0,
+) -> list[dict[str, object]]:
+    filtered_edges = [
+        edge for edge in edges
+        if float(edge["w2_average_lanes"]) >= float(min_average_lanes)
+    ]
+    if not filtered_edges:
+        raise ValueError("no edges remain after applying min_average_lanes")
+
+    distance = max_scale([float(edge["w1_distance_m"]) for edge in filtered_edges])
+    lane_inverse = [inverse_lane_penalty(float(edge["w2_average_lanes"])) for edge in filtered_edges]
+    protection = max_scale([float(edge["w3_protection_proxy"]) for edge in filtered_edges])
+    slope = [slope_limit_penalty(float(edge["w4_average_absolute_grade_pct"])) for edge in filtered_edges]
     rows: list[dict[str, object]] = []
-    for idx, edge in enumerate(edges):
+    for idx, edge in enumerate(filtered_edges):
         item = dict(edge)
         item["distance_norm"] = distance[idx]
-        item["lane_penalty_norm"] = lane_penalty[idx]
+        item["lane_inverse_norm"] = lane_inverse[idx]
+        item["lane_penalty_norm"] = lane_inverse[idx]
         item["protection_norm"] = protection[idx]
         item["slope_norm"] = slope[idx]
         item["scenario_cost"] = (
             weights["distance"] * distance[idx]
-            + weights["lane_capacity"] * lane_penalty[idx]
+            + weights["lane_capacity"] * lane_inverse[idx]
             + weights["protection_proxy"] * protection[idx]
             + weights["preliminary_slope"] * slope[idx]
         )
