@@ -17,14 +17,14 @@
     {
       "structure": "CURRENT_03_CANDIDATE",
       "connected": true,
-      "edge_count": 84,
-      "total_w1_distance_km": 291.133,
-      "total_composite_cost": 23.205817750497438,
-      "bridge_count": 35,
-      "max_degree": 15,
-      "average_shortest_path_km": 17.64305925925926,
-      "diameter_km": 39.947,
-      "mean_distance_stretch": 2.442298540894664,
+      "edge_count": 54,
+      "total_w1_distance_km": 183.551,
+      "total_composite_cost": 15.524342257654315,
+      "bridge_count": 54,
+      "max_degree": 7,
+      "average_shortest_path_km": 20.206091582491585,
+      "diameter_km": 44.179,
+      "mean_distance_stretch": 2.8117778877695137,
       "max_distance_stretch": 34.675324675324674
     },
     {

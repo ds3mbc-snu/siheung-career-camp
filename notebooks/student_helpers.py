@@ -368,23 +368,17 @@ def degree_limited_kruskal(nodes: list[str], edges: list[dict[str, object]], max
     return selected
 
 
-def build_candidate(stations: list[dict[str, object]], scored: list[dict[str, object]], extra_edge_count: int) -> tuple[list[str], list[str], list[dict[str, object]]]:
+def build_candidate(stations: list[dict[str, object]], scored: list[dict[str, object]]) -> tuple[list[str], list[str], list[dict[str, object]]]:
     nodes = station_ids(stations)
     comps = components(nodes, scored)
     active_nodes = comps[0]
     unresolved = [node for comp in comps[1:] for node in comp]
     active_edges = [edge for edge in scored if edge["from_station_id"] in active_nodes and edge["to_station_id"] in active_nodes]
     tree = mst(active_nodes, active_edges, "scenario_cost")
-    tree_ids = {edge["pair_id"] for edge in tree}
-    extras = [edge for edge in active_edges if edge["pair_id"] not in tree_ids][:extra_edge_count]
     candidate = []
     for edge in tree:
         item = dict(edge)
         item["selection_role"] = "SCENARIO_MST"
-        candidate.append(item)
-    for edge in extras:
-        item = dict(edge)
-        item["selection_role"] = "REDUNDANCY_EXTRA"
         candidate.append(item)
     return active_nodes, unresolved, candidate
 
