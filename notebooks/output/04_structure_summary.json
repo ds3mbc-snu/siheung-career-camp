@@ -1,0 +1,84 @@
+{
+  "status": "PASS",
+  "structures": [
+    {
+      "structure": "CANDIDATE_GRAPH",
+      "connected": true,
+      "edge_count": 1061,
+      "total_w1_distance_km": 7244.976,
+      "total_composite_cost": 468.61403365715597,
+      "bridge_count": 0,
+      "max_degree": 51,
+      "average_shortest_path_km": 8.7280734006734,
+      "diameter_km": 21.99,
+      "mean_distance_stretch": 1.0,
+      "max_distance_stretch": 1.0
+    },
+    {
+      "structure": "CURRENT_03_CANDIDATE",
+      "connected": true,
+      "edge_count": 84,
+      "total_w1_distance_km": 309.354,
+      "total_composite_cost": 24.117519576418797,
+      "bridge_count": 36,
+      "max_degree": 12,
+      "average_shortest_path_km": 17.096105050505052,
+      "diameter_km": 37.907000000000004,
+      "mean_distance_stretch": 2.4864884902010935,
+      "max_distance_stretch": 53.08229813664597
+    },
+    {
+      "structure": "MST",
+      "connected": true,
+      "edge_count": 54,
+      "total_w1_distance_km": 201.835,
+      "total_composite_cost": 16.421528846164044,
+      "bridge_count": 54,
+      "max_degree": 7,
+      "average_shortest_path_km": 21.010404040404037,
+      "diameter_km": 45.953,
+      "mean_distance_stretch": 3.098038323092097,
+      "max_distance_stretch": 60.40217391304348
+    },
+    {
+      "structure": "T2_SPANNER",
+      "connected": true,
+      "edge_count": 270,
+      "total_w1_distance_km": 1610.294,
+      "total_composite_cost": 104.41385142648578,
+      "bridge_count": 0,
+      "max_degree": 16,
+      "average_shortest_path_km": 10.455151515151515,
+      "diameter_km": 23.093,
+      "mean_distance_stretch": 1.4734800666431305,
+      "max_distance_stretch": 22.777056277056275
+    },
+    {
+      "structure": "DEGREE_LIMIT_3",
+      "connected": true,
+      "edge_count": 54,
+      "total_w1_distance_km": 198.157,
+      "total_composite_cost": 16.82663792975941,
+      "bridge_count": 54,
+      "max_degree": 3,
+      "average_shortest_path_km": 28.140308417508418,
+      "diameter_km": 65.956,
+      "mean_distance_stretch": 4.101708437909879,
+      "max_distance_stretch": 77.11229946524064
+    },
+    {
+      "structure": "DEGREE_LIMIT_4",
+      "connected": true,
+      "edge_count": 54,
+      "total_w1_distance_km": 196.181,
+      "total_composite_cost": 16.556497002782574,
+      "bridge_count": 54,
+      "max_degree": 4,
+      "average_shortest_path_km": 22.46914208754209,
+      "diameter_km": 47.93600000000001,
+      "mean_distance_stretch": 3.379385855189077,
+      "max_distance_stretch": 61.29347826086956
+    }
+  ],
+  "classification": "LECTURE_STRUCTURE_COMPARISON_NOT_FINAL_ROUTE"
+}

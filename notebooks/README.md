@@ -7,11 +7,12 @@ API를 호출하지 않고, 함께 포함된 `output/` 산출물만 읽어서 �
 
 | 파일 | 내용 |
 |---|---|
-| `02_candidate_scenario.ipynb` | W1~W4 복합 비용으로 후보 network 확인 |
-| `03_structure_alternatives.ipynb` | MST, t-spanner, degree-limited Kruskal 비교 |
-| `04_weight_sensitivity.ipynb` | weight 조합별 구조 민감도와 route 안정성 확인 |
-| `05_route_geometry_and_interactive_weights.ipynb` | 저장 route geometry 기반 구조별 지도 확인 |
+| `03_candidate_scenario.ipynb` | W1~W4 복합 비용으로 후보 network 확인 |
+| `04_structure_alternatives.ipynb` | MST, t-spanner, degree-limited Kruskal 비교 |
+| `05_weight_sensitivity.ipynb` | weight 조합별 구조 민감도와 route 안정성 확인 |
+| `06_route_geometry_and_interactive_weights.ipynb` | 저장 route geometry 기반 구조별 지도 확인 |
 | `output/` | 노트북 실행에 필요한 CSV, JSON, PNG, HTML 산출물 |
+| `data/routes/route_paths.geojson` | 06번 지도 생성에 필요한 저장 경로 geometry |
 
 ## 실행 방법
 
@@ -72,10 +73,10 @@ jupyter lab
 잠시 기다리면 웹 브라우저가 열리고 JupyterLab 화면이 나타납니다.
 왼쪽 파일 목록에서 아래 노트북을 순서대로 열어 실행합니다.
 
-1. `02_candidate_scenario.ipynb`
-2. `03_structure_alternatives.ipynb`
-3. `04_weight_sensitivity.ipynb`
-4. `05_route_geometry_and_interactive_weights.ipynb`
+1. `03_candidate_scenario.ipynb`
+2. `04_structure_alternatives.ipynb`
+3. `05_weight_sensitivity.ipynb`
+4. `06_route_geometry_and_interactive_weights.ipynb`
 
 노트북을 연 뒤에는 상단 메뉴에서 `Run` → `Run All Cells`를 누르면 전체 셀이 순서대로 실행됩니다.
 
@@ -90,6 +91,6 @@ jupyter lab
 
 - 이 배포본은 강의 실습용입니다.
 - 네이버 API나 외부 데이터 API를 호출하지 않습니다.
-- `output/` 폴더를 삭제하면 노트북이 실행되지 않습니다.
+- `output/` 폴더와 `data/routes/route_paths.geojson`을 삭제하면 일부 노트북이 실행되지 않습니다.
 - W3는 보호구역 시설점 buffer proxy 예비값이고, W4는 90m DEM 예비값입니다.
 - 결과는 알고리즘 비교 수업용 자료이며 최종 트램 노선안이 아닙니다.

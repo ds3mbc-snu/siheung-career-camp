@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "classification": "CURRENT_DATA_LECTURE_SCENARIO_NOT_FINAL_ROUTE",
+  "station_count": 55,
+  "active_station_count": 55,
+  "unresolved_station_ids": [],
+  "eligible_edge_count": 1061,
+  "candidate_edge_count": 84,
+  "weights": {
+    "distance": 0.25,
+    "lane_capacity": 0.25,
+    "protection_proxy": 0.25,
+    "preliminary_slope": 0.25
+  },
+  "maximum_edge_distance_km": 12.0,
+  "extra_edge_count": 30,
+  "average_shortest_path_km": 17.096105050505052,
+  "diameter_km": 37.907000000000004,
+  "mean_distance_stretch": 2.4864884902010935,
+  "max_distance_stretch": 53.08229813664597,
+  "w3_note": "W3 is PRELIMINARY_POINT_BUFFER_PROXY, not official protected-zone geometry.",
+  "w4_note": "W4 is PRELIMINARY_90M."
+}

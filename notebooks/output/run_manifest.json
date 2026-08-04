@@ -4,10 +4,10 @@
   "station_count": 55,
   "pair_count": 1485,
   "notebooks": [
-    "02_candidate_scenario.ipynb",
-    "03_structure_alternatives.ipynb",
-    "04_weight_sensitivity.ipynb",
-    "05_route_geometry_and_interactive_weights.ipynb"
+    "03_candidate_scenario.ipynb",
+    "04_structure_alternatives.ipynb",
+    "05_weight_sensitivity.ipynb",
+    "06_route_geometry_and_interactive_weights.ipynb"
   ],
   "api_calls": 0,
   "limitations": [
