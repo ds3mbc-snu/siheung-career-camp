@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Siheung Graph and MST Map</title>
+  <title>Siheung Graph Structure Map</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -105,6 +105,15 @@
     .swatch.mst {
       background: #0284c7;
     }
+    .swatch.tspanner {
+      background: #16a34a;
+    }
+    .swatch.degree {
+      background: #c2410c;
+    }
+    .swatch.biconnected {
+      background: #7c3aed;
+    }
     .weight-panel {
       border: 1px solid #e5e7eb;
       border-radius: 6px;
@@ -143,6 +152,38 @@
       line-height: 1.45;
       margin-top: 10px;
       padding: 8px;
+    }
+    .parameter-panel {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .parameter-row {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 84px 1fr 42px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .parameter-row:last-child {
+      margin-bottom: 0;
+    }
+    .parameter-row label {
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .parameter-row input {
+      accent-color: #0284c7;
+      width: 100%;
+    }
+    .draw-button {
+      background: #0f172a;
+      border-color: #0f172a;
+      color: #fff;
+    }
+    .draw-button:hover {
+      background: #1e293b;
     }
     select, button {
       box-sizing: border-box;
@@ -411,8 +452,8 @@
     <div id="map"></div>
     <aside id="side-panel" aria-label="그래프와 MST 지도 설정">
       <div class="panel-header">
-        <div class="panel-title">Graph / MST 지도</div>
-        <div class="panel-subtitle">전체 1,485개 경로 graph와 54개 MST 간선을 비교합니다.</div>
+        <div class="panel-title">Graph 구조 지도</div>
+        <div class="panel-subtitle">전체 1,485개 경로 graph 위에 선택한 그래프 구조를 덧그립니다.</div>
         <a class="nav-link" href="./">경로 확인 페이지로 돌아가기</a>
       </div>
       <div class="panel-body">
@@ -433,6 +474,30 @@
               <span class="layer-meta">기본 graph 위에 MST 강조</span>
             </span>
             <span class="swatch mst"></span>
+          </label>
+          <label class="layer-row">
+            <input name="display-mode" value="tspanner" type="radio">
+            <span>
+              <span class="layer-name">t-스패너</span>
+              <span class="layer-meta">최단거리 왜곡을 t 이하로 제한</span>
+            </span>
+            <span class="swatch tspanner"></span>
+          </label>
+          <label class="layer-row">
+            <input name="display-mode" value="degree" type="radio">
+            <span>
+              <span class="layer-name">차수 제한 신장트리</span>
+              <span class="layer-meta">각 역의 최대 연결 수를 제한</span>
+            </span>
+            <span class="swatch degree"></span>
+          </label>
+          <label class="layer-row">
+            <input name="display-mode" value="biconnected" type="radio">
+            <span>
+              <span class="layer-name">2-연결 신장 부분그래프</span>
+              <span class="layer-meta">절단점이 없도록 간선을 추가</span>
+            </span>
+            <span class="swatch biconnected"></span>
           </label>
         </div>
         <div class="field">
@@ -462,6 +527,24 @@
           </div>
         </div>
         <div class="field">
+          <div class="field-label">알고리즘 파라미터</div>
+          <div class="parameter-panel">
+            <div class="parameter-row">
+              <label for="t-value">t 값</label>
+              <input id="t-value" type="range" min="1.1" max="3.0" step="0.1" value="1.5">
+              <span id="t-value-label" class="weight-value">1.5</span>
+            </div>
+            <div class="parameter-row">
+              <label for="degree-value">최대 차수</label>
+              <input id="degree-value" type="range" min="2" max="8" step="1" value="4">
+              <span id="degree-value-label" class="weight-value">4</span>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <button id="draw-button" class="draw-button" type="button">그리기</button>
+        </div>
+        <div class="field">
           <label class="field-label" for="basemap-select">지도 선택</label>
           <select id="basemap-select">
             <option value="vworldBase">VWorld 일반지도</option>
@@ -472,7 +555,7 @@
         <div class="field">
           <div class="button-grid">
             <button id="fit-all-button" type="button">전체 보기</button>
-            <button id="fit-mst-button" type="button">MST 보기</button>
+            <button id="fit-mst-button" type="button">선택 결과 보기</button>
           </div>
         </div>
         <div class="field">
@@ -483,7 +566,7 @@
             </div>
             <div class="summary-card">
               <div id="mst-count" class="summary-value">-</div>
-              <div class="summary-name">최소신장수형도 edge</div>
+              <div class="summary-name">선택 결과 edge</div>
             </div>
           </div>
         </div>
@@ -542,9 +625,15 @@
     baseLayers.vworldBase.addTo(map);
 
     const graphFeatures = routeData.features;
-    let mstFeatures = [];
+    let activeFeatures = [];
+    let appliedMode = "graph";
+    let appliedLabel = "기본 graph";
     const detailBox = document.getElementById("detail-box");
     const weightSummary = document.getElementById("weight-summary");
+    const tValueInput = document.getElementById("t-value");
+    const tValueLabel = document.getElementById("t-value-label");
+    const degreeValueInput = document.getElementById("degree-value");
+    const degreeValueLabel = document.getElementById("degree-value-label");
     const weightValueElements = {
       distance: document.getElementById("weight-distance-value"),
       lane: document.getElementById("weight-lane-value"),
@@ -596,16 +685,16 @@
     }
 
     const graphLayer = makeLayer(graphFeatures, {
-      name: "전체 graph",
+      name: "기본 graph",
       style: {
         color: "#64748b",
-        weight: 1.35,
-        opacity: 0.42,
+        weight: 1.05,
+        opacity: 0.12,
       },
     }).addTo(map);
 
-    let mstCasingLayer = L.layerGroup();
-    let mstLayer = L.layerGroup();
+    let activeCasingLayer = L.layerGroup();
+    let activeLayer = L.layerGroup();
 
     const stationLayer = L.geoJSON(stationData, {
       pointToLayer(feature, latlng) {
@@ -626,10 +715,11 @@
       return document.querySelector('input[name="display-mode"]:checked').value;
     }
 
+    const stationIds = stationData.features.map((feature) => feature.properties.station_id);
     const maxDistance = Math.max(...graphFeatures.map((feature) => Number(feature.properties.distance_m) || 0));
     const maxProtection = Math.max(...graphFeatures.map((feature) => Number(feature.properties.w3_protection_proxy) || 0));
 
-    function normalizedWeights() {
+    function readWeightsFromInputs() {
       const raw = {};
       document.querySelectorAll(".weight-input").forEach((input) => {
         raw[input.dataset.weightKey] = Number(input.value) || 0;
@@ -644,6 +734,14 @@
         protection: raw.protection / sum,
         slope: raw.slope / sum,
       };
+    }
+
+    function updateInputLabels() {
+      document.querySelectorAll(".weight-input").forEach((input) => {
+        weightValueElements[input.dataset.weightKey].textContent = Number(input.value).toFixed(2);
+      });
+      tValueLabel.textContent = Number(tValueInput.value).toFixed(1);
+      degreeValueLabel.textContent = String(Number(degreeValueInput.value));
     }
 
     function lanePenalty(lanes) {
@@ -669,12 +767,15 @@
       );
     }
 
-    function recomputeCosts() {
-      const weights = normalizedWeights();
+    function applyCosts(weights) {
       graphFeatures.forEach((feature) => {
         feature.properties.current_cost = currentCost(feature.properties, weights);
       });
-      weightSummary.textContent = `적용 비율: W1 ${weights.distance.toFixed(2)}, W2 ${weights.lane.toFixed(2)}, W3 ${weights.protection.toFixed(2)}, W4 ${weights.slope.toFixed(2)}`;
+      return [...graphFeatures].sort((a, b) => {
+        const costDiff = a.properties.current_cost - b.properties.current_cost;
+        if (Math.abs(costDiff) > 1e-12) return costDiff;
+        return Number(a.properties.distance_m) - Number(b.properties.distance_m);
+      });
     }
 
     class UnionFind {
@@ -709,91 +810,210 @@
       }
     }
 
-    function recomputeMst() {
-      const stationIds = stationData.features.map((feature) => feature.properties.station_id);
-      const unionFind = new UnionFind(stationIds);
-      const sorted = [...graphFeatures].sort((a, b) => {
-        const costDiff = a.properties.current_cost - b.properties.current_cost;
-        if (Math.abs(costDiff) > 1e-12) return costDiff;
-        return Number(a.properties.distance_m) - Number(b.properties.distance_m);
+    function endpointIds(feature) {
+      return feature.properties.pair_id.split("__");
+    }
+
+    function buildAdjacency(features) {
+      const adjacency = new Map(stationIds.map((id) => [id, []]));
+      features.forEach((feature) => {
+        const [u, v] = endpointIds(feature);
+        const w = feature.properties.current_cost;
+        adjacency.get(u).push([v, w, feature]);
+        adjacency.get(v).push([u, w, feature]);
       });
+      return adjacency;
+    }
+
+    function shortestPathCost(adjacency, start, target) {
+      if (start === target) return 0;
+      const dist = new Map(stationIds.map((id) => [id, Infinity]));
+      const visited = new Set();
+      dist.set(start, 0);
+      while (visited.size < stationIds.length) {
+        let node = null;
+        let best = Infinity;
+        for (const [id, value] of dist.entries()) {
+          if (!visited.has(id) && value < best) {
+            node = id;
+            best = value;
+          }
+        }
+        if (node === null || node === target) break;
+        visited.add(node);
+        adjacency.get(node).forEach(([next, weight]) => {
+          const candidate = best + weight;
+          if (candidate < dist.get(next)) dist.set(next, candidate);
+        });
+      }
+      return dist.get(target);
+    }
+
+    function spanningTree(sortedFeatures, maxDegree = Infinity) {
+      const unionFind = new UnionFind(stationIds);
+      const degree = new Map(stationIds.map((id) => [id, 0]));
       const selected = [];
-      for (const feature of sorted) {
-        const p = feature.properties;
-        const pairParts = p.pair_id.split("__");
-        if (unionFind.union(pairParts[0], pairParts[1])) {
+      for (const feature of sortedFeatures) {
+        const [u, v] = endpointIds(feature);
+        if (degree.get(u) >= maxDegree || degree.get(v) >= maxDegree) continue;
+        if (unionFind.union(u, v)) {
           selected.push(feature);
+          degree.set(u, degree.get(u) + 1);
+          degree.set(v, degree.get(v) + 1);
           if (selected.length === stationIds.length - 1) break;
         }
       }
-      mstFeatures = selected;
+      return selected;
     }
 
-    function rebuildMstLayers() {
-      const hadCasing = map.hasLayer(mstCasingLayer);
-      const hadMst = map.hasLayer(mstLayer);
-      if (hadCasing) mstCasingLayer.removeFrom(map);
-      if (hadMst) mstLayer.removeFrom(map);
-      mstCasingLayer = makeLayer(mstFeatures, {
-        name: "MST",
+    function tSpanner(sortedFeatures, tValue) {
+      const selected = [];
+      const adjacency = new Map(stationIds.map((id) => [id, []]));
+      for (const feature of sortedFeatures) {
+        const [u, v] = endpointIds(feature);
+        const edgeCost = feature.properties.current_cost;
+        const pathCost = shortestPathCost(adjacency, u, v);
+        if (pathCost > tValue * edgeCost) {
+          selected.push(feature);
+          adjacency.get(u).push([v, edgeCost, feature]);
+          adjacency.get(v).push([u, edgeCost, feature]);
+        }
+      }
+      return selected;
+    }
+
+    function articulationPoints(features) {
+      const adjacency = buildAdjacency(features);
+      const visited = new Set();
+      const discovery = new Map();
+      const low = new Map();
+      const parent = new Map();
+      const points = new Set();
+      let time = 0;
+
+      function dfs(node) {
+        visited.add(node);
+        discovery.set(node, ++time);
+        low.set(node, discovery.get(node));
+        let children = 0;
+        adjacency.get(node).forEach(([next]) => {
+          if (!visited.has(next)) {
+            children += 1;
+            parent.set(next, node);
+            dfs(next);
+            low.set(node, Math.min(low.get(node), low.get(next)));
+            if (!parent.has(node) && children > 1) points.add(node);
+            if (parent.has(node) && low.get(next) >= discovery.get(node)) points.add(node);
+          } else if (next !== parent.get(node)) {
+            low.set(node, Math.min(low.get(node), discovery.get(next)));
+          }
+        });
+      }
+
+      stationIds.forEach((node) => {
+        if (!visited.has(node)) dfs(node);
+      });
+      return points;
+    }
+
+    function twoConnectedSubgraph(sortedFeatures) {
+      const selected = spanningTree(sortedFeatures);
+      const selectedPairs = new Set(selected.map((feature) => feature.properties.pair_id));
+      for (const feature of sortedFeatures) {
+        if (articulationPoints(selected).size === 0) break;
+        if (!selectedPairs.has(feature.properties.pair_id)) {
+          selected.push(feature);
+          selectedPairs.add(feature.properties.pair_id);
+        }
+      }
+      return selected;
+    }
+
+    const modeConfig = {
+      graph: { label: "기본 graph", color: "#64748b", weight: 1.35, opacity: 0.42, casing: false },
+      mst: { label: "최소신장수형도", color: "#0284c7", weight: 7.5, opacity: 0.95, casing: true },
+      tspanner: { label: "t-스패너", color: "#16a34a", weight: 6.2, opacity: 0.92, casing: true },
+      degree: { label: "차수 제한 신장트리", color: "#c2410c", weight: 6.6, opacity: 0.93, casing: true },
+      biconnected: { label: "2-연결 신장 부분그래프", color: "#7c3aed", weight: 6.4, opacity: 0.9, casing: true },
+    };
+
+    function rebuildActiveLayers() {
+      const hadCasing = map.hasLayer(activeCasingLayer);
+      const hadActive = map.hasLayer(activeLayer);
+      if (hadCasing) activeCasingLayer.removeFrom(map);
+      if (hadActive) activeLayer.removeFrom(map);
+      const config = modeConfig[appliedMode];
+      activeCasingLayer = makeLayer(activeFeatures, {
+        name: appliedLabel,
         style: {
           color: "#ffffff",
-          weight: 12,
+          weight: config.weight + 4.5,
           opacity: 0.96,
         },
       });
-      mstLayer = makeLayer(mstFeatures, {
-        name: "MST",
+      activeLayer = makeLayer(activeFeatures, {
+        name: appliedLabel,
         style: {
-          color: "#0284c7",
-          weight: 7.5,
-          opacity: 0.95,
+          color: config.color,
+          weight: config.weight,
+          opacity: config.opacity,
         },
       });
     }
 
-    function updateWeightsAndMst() {
-      document.querySelectorAll(".weight-input").forEach((input) => {
-        weightValueElements[input.dataset.weightKey].textContent = Number(input.value).toFixed(2);
-      });
-      recomputeCosts();
-      recomputeMst();
-      rebuildMstLayers();
-      document.getElementById("mst-count").textContent = mstFeatures.length.toLocaleString("ko-KR");
+    function computeModeFeatures(mode, sortedFeatures) {
+      if (mode === "graph") return graphFeatures;
+      if (mode === "mst") return spanningTree(sortedFeatures);
+      if (mode === "tspanner") return tSpanner(sortedFeatures, Number(tValueInput.value));
+      if (mode === "degree") return spanningTree(sortedFeatures, Number(degreeValueInput.value));
+      if (mode === "biconnected") return twoConnectedSubgraph(sortedFeatures);
+      return graphFeatures;
+    }
+
+    function drawSelectedMode() {
+      updateInputLabels();
+      appliedMode = selectedMode();
+      const weights = readWeightsFromInputs();
+      const sortedFeatures = applyCosts(weights);
+      activeFeatures = computeModeFeatures(appliedMode, sortedFeatures);
+      appliedLabel = modeConfig[appliedMode].label;
+      rebuildActiveLayers();
+      document.getElementById("mst-count").textContent = activeFeatures.length.toLocaleString("ko-KR");
+      const extra =
+        appliedMode === "tspanner" ? ` · t=${Number(tValueInput.value).toFixed(1)}`
+        : appliedMode === "degree" ? ` · 최대 차수=${Number(degreeValueInput.value)}`
+        : "";
+      weightSummary.textContent = `적용 비율: W1 ${weights.distance.toFixed(2)}, W2 ${weights.lane.toFixed(2)}, W3 ${weights.protection.toFixed(2)}, W4 ${weights.slope.toFixed(2)} · 표시: ${appliedLabel}${extra}`;
       setDisplayMode();
     }
 
     function setDisplayMode() {
-      const mode = selectedMode();
       if (!map.hasLayer(graphLayer)) graphLayer.addTo(map);
-      if (mode === "graph") {
-        graphLayer.setStyle({
-          color: "#64748b",
-          weight: 1.35,
-          opacity: 0.42,
-        });
-        if (map.hasLayer(mstCasingLayer)) mstCasingLayer.removeFrom(map);
-        if (map.hasLayer(mstLayer)) mstLayer.removeFrom(map);
-      } else {
-        graphLayer.setStyle({
-          color: "#64748b",
-          weight: 1.05,
-          opacity: 0.12,
-        });
-        if (!map.hasLayer(mstCasingLayer)) mstCasingLayer.addTo(map);
-        if (!map.hasLayer(mstLayer)) mstLayer.addTo(map);
-        mstCasingLayer.bringToFront();
-        mstLayer.bringToFront();
+      graphLayer.setStyle({
+        color: "#64748b",
+        weight: 1.05,
+        opacity: 0.12,
+      });
+      if (map.hasLayer(activeCasingLayer)) activeCasingLayer.removeFrom(map);
+      if (map.hasLayer(activeLayer)) activeLayer.removeFrom(map);
+      if (modeConfig[appliedMode].casing) {
+        activeCasingLayer.addTo(map);
+        activeCasingLayer.bringToFront();
       }
+      activeLayer.addTo(map);
+      activeLayer.bringToFront();
       if (map.hasLayer(stationLayer)) stationLayer.bringToFront();
     }
 
     document.querySelectorAll('input[name="display-mode"]').forEach((input) => {
-      input.addEventListener("change", setDisplayMode);
+      input.addEventListener("change", updateInputLabels);
     });
     document.querySelectorAll(".weight-input").forEach((input) => {
-      input.addEventListener("input", updateWeightsAndMst);
+      input.addEventListener("input", updateInputLabels);
     });
+    tValueInput.addEventListener("input", updateInputLabels);
+    degreeValueInput.addEventListener("input", updateInputLabels);
+    document.getElementById("draw-button").addEventListener("click", drawSelectedMode);
     document.getElementById("basemap-select").addEventListener("change", (event) => {
       for (const layer of Object.values(baseLayers)) {
         if (map.hasLayer(layer)) map.removeLayer(layer);
@@ -805,13 +1025,13 @@
     });
     document.getElementById("fit-mst-button").addEventListener("click", () => {
       document.querySelector('input[name="display-mode"][value="mst"]').checked = true;
-      setDisplayMode();
-      map.fitBounds(mstLayer.getBounds(), { padding: [24, 24], animate: false });
+      drawSelectedMode();
+      map.fitBounds(activeLayer.getBounds(), { padding: [24, 24], animate: false });
     });
 
     document.getElementById("graph-count").textContent = data.summary.graph_edge_count.toLocaleString("ko-KR");
-    document.getElementById("mst-count").textContent = data.summary.mst_edge_count.toLocaleString("ko-KR");
-    updateWeightsAndMst();
+    updateInputLabels();
+    drawSelectedMode();
     setTimeout(() => map.invalidateSize(), 0);
   </script>
 </body>
