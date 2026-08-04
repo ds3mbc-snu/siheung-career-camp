@@ -219,12 +219,46 @@
     .summary-grid {
       display: grid;
       gap: 8px;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
+    }
+    .metric-panel {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .metric-title {
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 8px;
     }
     .summary-card {
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       padding: 10px;
+    }
+    .metric-row {
+      border-top: 1px solid #f1f5f9;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 82px 1fr;
+      padding: 7px 0;
+    }
+    .metric-row:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+    .metric-key {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .metric-value {
+      color: #0f172a;
+      font-size: 11px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      text-align: right;
     }
     .summary-value {
       font-size: 20px;
@@ -559,14 +593,29 @@
           </div>
         </div>
         <div class="field">
+          <div class="field-label">구조 지표</div>
           <div class="summary-grid">
-            <div class="summary-card">
-              <div id="graph-count" class="summary-value">-</div>
-              <div class="summary-name">기본 graph edge</div>
+            <div class="metric-panel">
+              <div class="metric-title">기본 graph</div>
+              <div class="metric-row"><div class="metric-key">변 수</div><div id="graph-count" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">총 가중치</div><div id="graph-weight-sum" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">최대 우회율</div><div id="graph-detour" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">우회 쌍</div><div id="graph-detour-pair" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">최대 차수</div><div id="graph-degree" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">해당 역</div><div id="graph-degree-stations" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">지름</div><div id="graph-diameter" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">지름 쌍</div><div id="graph-diameter-pair" class="metric-value">-</div></div>
             </div>
-            <div class="summary-card">
-              <div id="mst-count" class="summary-value">-</div>
-              <div class="summary-name">선택 결과 edge</div>
+            <div class="metric-panel">
+              <div class="metric-title">선택 결과</div>
+              <div class="metric-row"><div class="metric-key">변 수</div><div id="selected-count" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">총 가중치</div><div id="selected-weight-sum" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">최대 우회율</div><div id="selected-detour" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">우회 쌍</div><div id="selected-detour-pair" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">최대 차수</div><div id="selected-degree" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">해당 역</div><div id="selected-degree-stations" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">지름</div><div id="selected-diameter" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">지름 쌍</div><div id="selected-diameter-pair" class="metric-value">-</div></div>
             </div>
           </div>
         </div>
@@ -640,6 +689,28 @@
       protection: document.getElementById("weight-w3-value"),
       slope: document.getElementById("weight-slope-value"),
     };
+    const metricElements = {
+      graph: {
+        count: document.getElementById("graph-count"),
+        weightSum: document.getElementById("graph-weight-sum"),
+        detour: document.getElementById("graph-detour"),
+        detourPair: document.getElementById("graph-detour-pair"),
+        degree: document.getElementById("graph-degree"),
+        degreeStations: document.getElementById("graph-degree-stations"),
+        diameter: document.getElementById("graph-diameter"),
+        diameterPair: document.getElementById("graph-diameter-pair"),
+      },
+      selected: {
+        count: document.getElementById("selected-count"),
+        weightSum: document.getElementById("selected-weight-sum"),
+        detour: document.getElementById("selected-detour"),
+        detourPair: document.getElementById("selected-detour-pair"),
+        degree: document.getElementById("selected-degree"),
+        degreeStations: document.getElementById("selected-degree-stations"),
+        diameter: document.getElementById("selected-diameter"),
+        diameterPair: document.getElementById("selected-diameter-pair"),
+      },
+    };
     const normalStationStyle = {
       radius: 5,
       color: "#111827",
@@ -660,6 +731,16 @@
     function lane(value) {
       if (value === undefined || value === null || Number.isNaN(Number(value))) return "-";
       return Number(value).toFixed(2);
+    }
+
+    function km(value) {
+      if (!Number.isFinite(value)) return "연결 안 됨";
+      return `${Number(value).toLocaleString("ko-KR", { maximumFractionDigits: 2 })} km`;
+    }
+
+    function ratio(value) {
+      if (!Number.isFinite(value)) return "연결 안 됨";
+      return `${Number(value).toFixed(3)}배`;
     }
 
     function showDetail(properties, layerName) {
@@ -716,8 +797,16 @@
     }
 
     const stationIds = stationData.features.map((feature) => feature.properties.station_id);
+    const stationNameById = new Map(stationData.features.map((feature) => [
+      feature.properties.station_id,
+      feature.properties.station_name,
+    ]));
     const maxDistance = Math.max(...graphFeatures.map((feature) => Number(feature.properties.distance_m) || 0));
     const maxProtection = Math.max(...graphFeatures.map((feature) => Number(feature.properties.w3_protection_proxy) || 0));
+    const directDistanceByPair = new Map(graphFeatures.map((feature) => [
+      pairKey(...endpointIds(feature)),
+      Number(feature.properties.distance_km),
+    ]));
 
     function readWeightsFromInputs() {
       const raw = {};
@@ -814,11 +903,31 @@
       return feature.properties.pair_id.split("__");
     }
 
-    function buildAdjacency(features) {
+    function pairKey(a, b) {
+      return [a, b].sort().join("__");
+    }
+
+    function stationLabel(id) {
+      return `${id} ${stationNameById.get(id) || ""}`.trim();
+    }
+
+    function pairLabel(pair) {
+      if (!pair) return "-";
+      return `${stationLabel(pair[0])} ↔ ${stationLabel(pair[1])}`;
+    }
+
+    function stationListLabel(stations) {
+      if (!stations.length) return "-";
+      if (stations.length === stationIds.length) return `전체 ${stationIds.length}개 역`;
+      if (stations.length <= 6) return stations.join(", ");
+      return `${stations.slice(0, 6).join(", ")} 외 ${stations.length - 6}개`;
+    }
+
+    function buildAdjacency(features, metric = "current_cost") {
       const adjacency = new Map(stationIds.map((id) => [id, []]));
       features.forEach((feature) => {
         const [u, v] = endpointIds(feature);
-        const w = feature.properties.current_cost;
+        const w = Number(feature.properties[metric]);
         adjacency.get(u).push([v, w, feature]);
         adjacency.get(v).push([u, w, feature]);
       });
@@ -847,6 +956,91 @@
         });
       }
       return dist.get(target);
+    }
+
+    function shortestPathDistances(adjacency, start) {
+      const dist = new Map(stationIds.map((id) => [id, Infinity]));
+      const visited = new Set();
+      dist.set(start, 0);
+      while (visited.size < stationIds.length) {
+        let node = null;
+        let best = Infinity;
+        for (const [id, value] of dist.entries()) {
+          if (!visited.has(id) && value < best) {
+            node = id;
+            best = value;
+          }
+        }
+        if (node === null) break;
+        visited.add(node);
+        adjacency.get(node).forEach(([next, weight]) => {
+          const candidate = best + weight;
+          if (candidate < dist.get(next)) dist.set(next, candidate);
+        });
+      }
+      return dist;
+    }
+
+    function structureMetrics(features) {
+      const totalWeight = features.reduce((sum, feature) => sum + Number(feature.properties.current_cost || 0), 0);
+      const degrees = new Map(stationIds.map((id) => [id, 0]));
+      features.forEach((feature) => {
+        const [u, v] = endpointIds(feature);
+        degrees.set(u, degrees.get(u) + 1);
+        degrees.set(v, degrees.get(v) + 1);
+      });
+      const maxDegree = Math.max(...degrees.values());
+      const maxDegreeStations = [...degrees.entries()]
+        .filter(([, degree]) => degree === maxDegree)
+        .map(([id]) => stationLabel(id));
+
+      const adjacency = buildAdjacency(features, "distance_km");
+      let maxDetour = -Infinity;
+      let maxDetourPair = null;
+      let diameter = -Infinity;
+      let diameterPair = null;
+      for (let i = 0; i < stationIds.length; i += 1) {
+        const from = stationIds[i];
+        const distances = shortestPathDistances(adjacency, from);
+        for (let j = i + 1; j < stationIds.length; j += 1) {
+          const to = stationIds[j];
+          const pathDistance = distances.get(to);
+          const directDistance = directDistanceByPair.get(pairKey(from, to));
+          if (pathDistance > diameter) {
+            diameter = pathDistance;
+            diameterPair = [from, to];
+          }
+          if (directDistance > 0) {
+            const detour = pathDistance / directDistance;
+            if (detour > maxDetour) {
+              maxDetour = detour;
+              maxDetourPair = [from, to];
+            }
+          }
+        }
+      }
+      return {
+        count: features.length,
+        totalWeight,
+        maxDetour,
+        maxDetourPair,
+        maxDegree,
+        maxDegreeStations,
+        diameter,
+        diameterPair,
+      };
+    }
+
+    function renderMetrics(target, metrics) {
+      const elements = metricElements[target];
+      elements.count.textContent = metrics.count.toLocaleString("ko-KR");
+      elements.weightSum.textContent = metrics.totalWeight.toLocaleString("ko-KR", { maximumFractionDigits: 3 });
+      elements.detour.textContent = ratio(metrics.maxDetour);
+      elements.detourPair.textContent = pairLabel(metrics.maxDetourPair);
+      elements.degree.textContent = metrics.maxDegree.toLocaleString("ko-KR");
+      elements.degreeStations.textContent = stationListLabel(metrics.maxDegreeStations);
+      elements.diameter.textContent = km(metrics.diameter);
+      elements.diameterPair.textContent = pairLabel(metrics.diameterPair);
     }
 
     function spanningTree(sortedFeatures, maxDegree = Infinity) {
@@ -978,7 +1172,8 @@
       activeFeatures = computeModeFeatures(appliedMode, sortedFeatures);
       appliedLabel = modeConfig[appliedMode].label;
       rebuildActiveLayers();
-      document.getElementById("mst-count").textContent = activeFeatures.length.toLocaleString("ko-KR");
+      renderMetrics("graph", structureMetrics(graphFeatures));
+      renderMetrics("selected", structureMetrics(activeFeatures));
       const extra =
         appliedMode === "tspanner" ? ` · t=${Number(tValueInput.value).toFixed(1)}`
         : appliedMode === "degree" ? ` · 최대 차수=${Number(degreeValueInput.value)}`
@@ -1029,7 +1224,6 @@
       map.fitBounds(activeLayer.getBounds(), { padding: [24, 24], animate: false });
     });
 
-    document.getElementById("graph-count").textContent = data.summary.graph_edge_count.toLocaleString("ko-KR");
     updateInputLabels();
     drawSelectedMode();
     setTimeout(() => map.invalidateSize(), 0);
