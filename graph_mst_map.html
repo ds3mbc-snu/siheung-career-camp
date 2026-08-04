@@ -382,7 +382,7 @@
           <label class="layer-row">
             <input name="display-mode" value="graph" type="radio" checked>
             <span>
-              <span class="layer-name">전체 graph</span>
+              <span class="layer-name">기본 graph</span>
               <span class="layer-meta">55개 지점의 모든 pair route</span>
             </span>
             <span class="swatch graph"></span>
@@ -390,8 +390,8 @@
           <label class="layer-row">
             <input name="display-mode" value="mst" type="radio">
             <span>
-              <span class="layer-name">MST</span>
-              <span class="layer-meta">전체 graph를 옅게 깔고 MST 강조</span>
+              <span class="layer-name">최소신장수형도</span>
+              <span class="layer-meta">기본 graph 위에 MST 강조</span>
             </span>
             <span class="swatch mst"></span>
           </label>
@@ -414,11 +414,11 @@
           <div class="summary-grid">
             <div class="summary-card">
               <div id="graph-count" class="summary-value">-</div>
-              <div class="summary-name">전체 graph edge</div>
+              <div class="summary-name">기본 graph edge</div>
             </div>
             <div class="summary-card">
               <div id="mst-count" class="summary-value">-</div>
-              <div class="summary-name">MST edge</div>
+              <div class="summary-name">최소신장수형도 edge</div>
             </div>
           </div>
         </div>
@@ -480,6 +480,13 @@
     const graphFeatures = routeData.features;
     const mstFeatures = routeData.features.filter((feature) => mstPairIds.has(feature.properties.pair_id));
     const detailBox = document.getElementById("detail-box");
+    const normalStationStyle = {
+      radius: 5,
+      color: "#111827",
+      weight: 1.5,
+      fillColor: "#ef4444",
+      fillOpacity: 0.95,
+    };
 
     function meters(value) {
       return Number(value).toLocaleString("ko-KR", { maximumFractionDigits: 0 }) + " m";
@@ -546,35 +553,18 @@
 
     const stationLayer = L.geoJSON(stationData, {
       pointToLayer(feature, latlng) {
-        return L.circleMarker(latlng, {
-          radius: 4.5,
-          color: "#111827",
-          weight: 1.4,
-          fillColor: "#ffffff",
-          fillOpacity: 0.95,
-        });
+        return L.circleMarker(latlng, normalStationStyle);
       },
       onEachFeature(feature, layer) {
         const p = feature.properties;
-        layer.bindTooltip(`${p.station_id} ${p.station_name}`);
+        layer.bindTooltip(`${p.station_id}`, {
+          permanent: true,
+          direction: "top",
+          offset: [0, -7],
+          className: "station-label",
+        });
       },
     }).addTo(map);
-
-    const labelLayer = L.layerGroup(
-      stationData.features.map((feature) => {
-        const [lng, lat] = feature.geometry.coordinates;
-        const p = feature.properties;
-        return L.marker([lat, lng], {
-          icon: L.divIcon({
-            className: "station-label",
-            html: p.station_name,
-            iconSize: null,
-            iconAnchor: [-7, 17],
-          }),
-          interactive: false,
-        });
-      })
-    ).addTo(map);
 
     function selectedMode() {
       return document.querySelector('input[name="display-mode"]:checked').value;
@@ -603,7 +593,6 @@
         mstLayer.bringToFront();
       }
       if (map.hasLayer(stationLayer)) stationLayer.bringToFront();
-      if (map.hasLayer(labelLayer)) labelLayer.removeFrom(map).addTo(map);
     }
 
     document.querySelectorAll('input[name="display-mode"]').forEach((input) => {
