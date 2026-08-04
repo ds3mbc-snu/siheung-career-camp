@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Siheung Graph and MST Map</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIINfQPhQ6Pvi7jI6Z0do6ihRZ9cc6pLFEw="
+    crossorigin=""
+  >
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    #app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      height: 100vh;
+    }
+    #map {
+      height: 100vh;
+      min-width: 0;
+      background: #eef2f6;
+    }
+    #side-panel {
+      height: 100vh;
+      background: #fff;
+      border-left: 1px solid #d1d5db;
+      box-shadow: -2px 0 8px rgba(15, 23, 42, 0.08);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      z-index: 1100;
+    }
+    .panel-header {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .panel-subtitle {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 5px;
+    }
+    .panel-body {
+      overflow: auto;
+      padding: 14px 16px 18px;
+    }
+    .field {
+      margin-bottom: 18px;
+    }
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .layer-row {
+      align-items: center;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      cursor: pointer;
+      display: grid;
+      gap: 9px;
+      grid-template-columns: auto 1fr auto;
+      margin-bottom: 8px;
+      padding: 9px 10px;
+    }
+    .layer-row:hover {
+      background: #f8fafc;
+    }
+    .layer-row input {
+      margin: 0;
+    }
+    .layer-name {
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .layer-meta {
+      color: #64748b;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .swatch {
+      border-radius: 999px;
+      height: 4px;
+      width: 38px;
+    }
+    .swatch.graph {
+      background: #64748b;
+    }
+    .swatch.mst {
+      background: #0284c7;
+    }
+    select, button {
+      box-sizing: border-box;
+      font: inherit;
+      width: 100%;
+    }
+    select {
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      color: #111827;
+      font-size: 13px;
+      padding: 8px 9px;
+    }
+    button {
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      color: #334155;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 9px;
+    }
+    button:hover {
+      background: #f8fafc;
+    }
+    .button-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+    .summary-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+    .summary-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .summary-value {
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .summary-name {
+      color: #64748b;
+      font-size: 11px;
+      margin-top: 5px;
+    }
+    .detail-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.55;
+      min-height: 86px;
+      padding: 10px;
+    }
+    .detail-title {
+      color: #0f172a;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .nav-link {
+      color: #2563eb;
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+      text-decoration: none;
+    }
+    .nav-link:hover {
+      text-decoration: underline;
+    }
+    .station-label {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.2);
+      border-radius: 4px;
+      color: #0f172a;
+      font-size: 11px;
+      line-height: 1;
+      padding: 3px 4px;
+      white-space: nowrap;
+    }
+    @media (max-width: 860px) {
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) 320px;
+      }
+      #map {
+        height: auto;
+      }
+      #side-panel {
+        height: 320px;
+        border-left: 0;
+        border-top: 1px solid #d1d5db;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="map"></div>
+    <aside id="side-panel" aria-label="그래프와 MST 지도 설정">
+      <div class="panel-header">
+        <div class="panel-title">Graph / MST 지도</div>
+        <div class="panel-subtitle">전체 1,485개 경로 graph와 54개 MST 간선을 비교합니다.</div>
+        <a class="nav-link" href="./">경로 확인 페이지로 돌아가기</a>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <div class="field-label">표시 레이어</div>
+          <label class="layer-row">
+            <input id="graph-toggle" type="checkbox">
+            <span>
+              <span class="layer-name">전체 graph</span>
+              <span class="layer-meta">55개 지점의 모든 pair route</span>
+            </span>
+            <span class="swatch graph"></span>
+          </label>
+          <label class="layer-row">
+            <input id="mst-toggle" type="checkbox" checked>
+            <span>
+              <span class="layer-name">MST</span>
+              <span class="layer-meta">composite cost 기준 최소신장수형도</span>
+            </span>
+            <span class="swatch mst"></span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="field-label" for="basemap-select">지도 선택</label>
+          <select id="basemap-select">
+            <option value="osmBase">OpenStreetMap</option>
+            <option value="vworldBase">VWorld 일반지도</option>
+            <option value="vworldSatellite">VWorld 위성지도</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="button-grid">
+            <button id="fit-all-button" type="button">전체 보기</button>
+            <button id="fit-mst-button" type="button">MST 보기</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="summary-grid">
+            <div class="summary-card">
+              <div id="graph-count" class="summary-value">-</div>
+              <div class="summary-name">전체 graph edge</div>
+            </div>
+            <div class="summary-card">
+              <div id="mst-count" class="summary-value">-</div>
+              <div class="summary-name">MST edge</div>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">선택한 경로</div>
+          <div id="detail-box" class="detail-box">지도 위 경로를 클릭하면 pair ID와 비용 정보를 확인할 수 있습니다.</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="graph_mst_data.js?v=20260804-mst-fullgraph"></script>
+  <script>
+    const data = window.__siheungGraphMstData;
+    const stationData = data.stationData;
+    const routeData = data.routeData;
+    const mstPairIds = new Set(data.mstPairIds);
+    const siheungBounds = L.latLngBounds([37.30, 126.66], [37.47, 126.88]);
+
+    const map = L.map("map", {
+      center: [37.382, 126.765],
+      zoom: 12,
+      minZoom: 11,
+      maxBounds: siheungBounds.pad(0.16),
+      maxBoundsViscosity: 0.85,
+      zoomControl: true,
+      zoomAnimation: false,
+      fadeAnimation: false,
+      markerZoomAnimation: false,
+    });
+
+    const baseLayers = {
+      vworldBase: L.tileLayer("https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "VWorld",
+      }),
+      vworldSatellite: L.tileLayer("https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{y}.jpeg", {
+        maxZoom: 19,
+        attribution: "VWorld",
+      }),
+      osmBase: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors",
+      }),
+    };
+    baseLayers.osmBase.addTo(map);
+
+    const graphFeatures = routeData.features;
+    const mstFeatures = routeData.features.filter((feature) => mstPairIds.has(feature.properties.pair_id));
+    const detailBox = document.getElementById("detail-box");
+
+    function meters(value) {
+      return Number(value).toLocaleString("ko-KR", { maximumFractionDigits: 0 }) + " m";
+    }
+
+    function cost(value) {
+      if (value === undefined || value === null || Number.isNaN(Number(value))) return "-";
+      return Number(value).toFixed(4);
+    }
+
+    function lane(value) {
+      if (value === undefined || value === null || Number.isNaN(Number(value))) return "-";
+      return Number(value).toFixed(2);
+    }
+
+    function showDetail(properties, layerName) {
+      detailBox.innerHTML = `
+        <div class="detail-title">${layerName} · ${properties.pair_id}</div>
+        <div>${properties.from_station_name} → ${properties.to_station_name}</div>
+        <div>거리: ${meters(properties.distance_m)} · 비용: ${cost(properties.scenario_cost)}</div>
+        <div>평균 차로 수: ${lane(properties.w2_average_lanes)} · W3: ${cost(properties.w3_protection_proxy)} · 경사: ${lane(properties.w4_average_absolute_grade_pct)}%</div>
+      `;
+    }
+
+    function makeLayer(features, options) {
+      return L.geoJSON({ type: "FeatureCollection", features }, {
+        style: options.style,
+        onEachFeature(feature, layer) {
+          const p = feature.properties;
+          layer.bindTooltip(`${options.name} · ${p.from_station_name} → ${p.to_station_name}`, {
+            sticky: true,
+          });
+          layer.on("click", () => showDetail(p, options.name));
+        },
+      });
+    }
+
+    const graphLayer = makeLayer(graphFeatures, {
+      name: "전체 graph",
+      style: {
+        color: "#64748b",
+        weight: 1.15,
+        opacity: 0.22,
+      },
+    });
+
+    const mstCasingLayer = makeLayer(mstFeatures, {
+      name: "MST",
+      style: {
+        color: "#ffffff",
+        weight: 12,
+        opacity: 0.96,
+      },
+    }).addTo(map);
+
+    const mstLayer = makeLayer(mstFeatures, {
+      name: "MST",
+      style: {
+        color: "#0284c7",
+        weight: 7.5,
+        opacity: 0.95,
+      },
+    }).addTo(map);
+
+    const stationLayer = L.geoJSON(stationData, {
+      pointToLayer(feature, latlng) {
+        return L.circleMarker(latlng, {
+          radius: 4.5,
+          color: "#111827",
+          weight: 1.4,
+          fillColor: "#ffffff",
+          fillOpacity: 0.95,
+        });
+      },
+      onEachFeature(feature, layer) {
+        const p = feature.properties;
+        layer.bindTooltip(`${p.station_id} ${p.station_name}`);
+      },
+    }).addTo(map);
+
+    const labelLayer = L.layerGroup(
+      stationData.features.map((feature) => {
+        const [lng, lat] = feature.geometry.coordinates;
+        const p = feature.properties;
+        return L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: "station-label",
+            html: p.station_name,
+            iconSize: null,
+            iconAnchor: [-7, 17],
+          }),
+          interactive: false,
+        });
+      })
+    ).addTo(map);
+
+    function setLayerVisibility() {
+      const showGraph = document.getElementById("graph-toggle").checked;
+      const showMst = document.getElementById("mst-toggle").checked;
+      if (showGraph && !map.hasLayer(graphLayer)) graphLayer.addTo(map);
+      if (!showGraph && map.hasLayer(graphLayer)) graphLayer.removeFrom(map);
+      if (showMst && !map.hasLayer(mstCasingLayer)) mstCasingLayer.addTo(map);
+      if (!showMst && map.hasLayer(mstCasingLayer)) mstCasingLayer.removeFrom(map);
+      if (showMst && !map.hasLayer(mstLayer)) mstLayer.addTo(map);
+      if (!showMst && map.hasLayer(mstLayer)) mstLayer.removeFrom(map);
+      if (map.hasLayer(mstCasingLayer)) mstCasingLayer.bringToFront();
+      if (map.hasLayer(mstLayer)) mstLayer.bringToFront();
+      if (map.hasLayer(stationLayer)) stationLayer.bringToFront();
+      if (map.hasLayer(labelLayer)) labelLayer.removeFrom(map).addTo(map);
+    }
+
+    document.getElementById("graph-toggle").addEventListener("change", setLayerVisibility);
+    document.getElementById("mst-toggle").addEventListener("change", setLayerVisibility);
+    document.getElementById("basemap-select").addEventListener("change", (event) => {
+      for (const layer of Object.values(baseLayers)) {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+      }
+      baseLayers[event.target.value].addTo(map);
+    });
+    document.getElementById("fit-all-button").addEventListener("click", () => {
+      map.fitBounds(siheungBounds, { padding: [24, 24], animate: false });
+    });
+    document.getElementById("fit-mst-button").addEventListener("click", () => {
+      map.fitBounds(mstLayer.getBounds(), { padding: [24, 24], animate: false });
+    });
+
+    document.getElementById("graph-count").textContent = data.summary.graph_edge_count.toLocaleString("ko-KR");
+    document.getElementById("mst-count").textContent = data.summary.mst_edge_count.toLocaleString("ko-KR");
+    map.fitBounds(mstLayer.getBounds(), { padding: [28, 28], animate: false });
+  </script>
+</body>
+</html>
