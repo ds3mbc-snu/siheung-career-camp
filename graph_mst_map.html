@@ -599,7 +599,7 @@
               <div class="metric-title">기본 graph</div>
               <div class="metric-row"><div class="metric-key">변 수</div><div id="graph-count" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">총 가중치</div><div id="graph-weight-sum" class="metric-value">-</div></div>
-              <div class="metric-row"><div class="metric-key">최대 우회율</div><div id="graph-detour" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">최대 비용 우회율</div><div id="graph-detour" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">우회 쌍</div><div id="graph-detour-pair" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">최대 차수</div><div id="graph-degree" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">해당 역</div><div id="graph-degree-stations" class="metric-value">-</div></div>
@@ -610,7 +610,7 @@
               <div class="metric-title">선택 결과</div>
               <div class="metric-row"><div class="metric-key">변 수</div><div id="selected-count" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">총 가중치</div><div id="selected-weight-sum" class="metric-value">-</div></div>
-              <div class="metric-row"><div class="metric-key">최대 우회율</div><div id="selected-detour" class="metric-value">-</div></div>
+              <div class="metric-row"><div class="metric-key">최대 비용 우회율</div><div id="selected-detour" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">우회 쌍</div><div id="selected-detour-pair" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">최대 차수</div><div id="selected-degree" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">해당 역</div><div id="selected-degree-stations" class="metric-value">-</div></div>
@@ -807,6 +807,7 @@
       pairKey(...endpointIds(feature)),
       Number(feature.properties.distance_km),
     ]));
+    const directCostByPair = new Map();
 
     function readWeightsFromInputs() {
       const raw = {};
@@ -859,6 +860,7 @@
     function applyCosts(weights) {
       graphFeatures.forEach((feature) => {
         feature.properties.current_cost = currentCost(feature.properties, weights);
+        directCostByPair.set(pairKey(...endpointIds(feature)), feature.properties.current_cost);
       });
       return [...graphFeatures].sort((a, b) => {
         const costDiff = a.properties.current_cost - b.properties.current_cost;
@@ -994,24 +996,27 @@
         .filter(([, degree]) => degree === maxDegree)
         .map(([id]) => stationLabel(id));
 
-      const adjacency = buildAdjacency(features, "distance_km");
+      const costAdjacency = buildAdjacency(features, "current_cost");
+      const distanceAdjacency = buildAdjacency(features, "distance_km");
       let maxDetour = -Infinity;
       let maxDetourPair = null;
       let diameter = -Infinity;
       let diameterPair = null;
       for (let i = 0; i < stationIds.length; i += 1) {
         const from = stationIds[i];
-        const distances = shortestPathDistances(adjacency, from);
+        const costDistances = shortestPathDistances(costAdjacency, from);
+        const routeDistances = shortestPathDistances(distanceAdjacency, from);
         for (let j = i + 1; j < stationIds.length; j += 1) {
           const to = stationIds[j];
-          const pathDistance = distances.get(to);
-          const directDistance = directDistanceByPair.get(pairKey(from, to));
+          const pathDistance = routeDistances.get(to);
+          const pathCost = costDistances.get(to);
+          const directCost = directCostByPair.get(pairKey(from, to));
           if (pathDistance > diameter) {
             diameter = pathDistance;
             diameterPair = [from, to];
           }
-          if (directDistance > 0) {
-            const detour = pathDistance / directDistance;
+          if (directCost > 0) {
+            const detour = pathCost / directCost;
             if (detour > maxDetour) {
               maxDetour = detour;
               maxDetourPair = [from, to];
@@ -1065,7 +1070,7 @@
       const adjacency = new Map(stationIds.map((id) => [id, []]));
       for (const feature of sortedFeatures) {
         const [u, v] = endpointIds(feature);
-        const edgeCost = feature.properties.current_cost;
+        const edgeCost = Number(feature.properties.current_cost);
         const pathCost = shortestPathCost(adjacency, u, v);
         if (pathCost > tValue * edgeCost) {
           selected.push(feature);
