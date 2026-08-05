@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Siheung Graph Structure Map</title>
+  <title>시흥 그래프 구조 지도</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -176,6 +176,20 @@
     .parameter-row input {
       accent-color: #0284c7;
       width: 100%;
+    }
+    .parameter-row.disabled {
+      background: #f8fafc;
+      border-radius: 6px;
+      opacity: 0.55;
+      padding: 4px 0;
+    }
+    .parameter-row.disabled label,
+    .parameter-row.disabled .weight-value {
+      color: #94a3b8;
+    }
+    .parameter-row.disabled input {
+      accent-color: #94a3b8;
+      cursor: not-allowed;
     }
     .draw-button {
       background: #0f172a;
@@ -484,10 +498,10 @@
 <body>
   <div id="app">
     <div id="map"></div>
-    <aside id="side-panel" aria-label="그래프와 MST 지도 설정">
+    <aside id="side-panel" aria-label="그래프 구조 지도 설정">
       <div class="panel-header">
-        <div class="panel-title">Graph 구조 지도</div>
-        <div class="panel-subtitle">전체 1,485개 경로 graph 위에 선택한 그래프 구조를 덧그립니다.</div>
+        <div class="panel-title">그래프 구조 지도</div>
+        <div class="panel-subtitle">전체 1,485개 경로 그래프 위에 선택한 그래프 구조를 덧그립니다.</div>
         <a class="nav-link" href="./">경로 확인 페이지로 돌아가기</a>
       </div>
       <div class="panel-body">
@@ -496,16 +510,16 @@
           <label class="layer-row">
             <input name="display-mode" value="graph" type="radio" checked>
             <span>
-              <span class="layer-name">기본 graph</span>
-              <span class="layer-meta">55개 지점의 모든 pair route</span>
+              <span class="layer-name">기본 그래프</span>
+              <span class="layer-meta">55개 지점의 모든 경로 조합</span>
             </span>
             <span class="swatch graph"></span>
           </label>
           <label class="layer-row">
             <input name="display-mode" value="mst" type="radio">
             <span>
-              <span class="layer-name">최소신장수형도</span>
-              <span class="layer-meta">기본 graph 위에 MST 강조</span>
+              <span class="layer-name">MST</span>
+              <span class="layer-meta">기본 그래프 위에 MST 강조</span>
             </span>
             <span class="swatch mst"></span>
           </label>
@@ -513,14 +527,14 @@
             <input name="display-mode" value="tspanner" type="radio">
             <span>
               <span class="layer-name">t-스패너</span>
-              <span class="layer-meta">최단거리 왜곡을 t 이하로 제한</span>
+              <span class="layer-meta">복합비용 우회율을 t 이하로 제한</span>
             </span>
             <span class="swatch tspanner"></span>
           </label>
           <label class="layer-row">
             <input name="display-mode" value="degree" type="radio">
             <span>
-              <span class="layer-name">차수 제한 신장트리</span>
+              <span class="layer-name">차수 제한 신장수형도</span>
               <span class="layer-meta">각 역의 최대 연결 수를 제한</span>
             </span>
             <span class="swatch degree"></span>
@@ -528,8 +542,8 @@
           <label class="layer-row">
             <input name="display-mode" value="biconnected" type="radio">
             <span>
-              <span class="layer-name">2-연결 신장 부분그래프</span>
-              <span class="layer-meta">절단점이 없도록 간선을 추가</span>
+              <span class="layer-name">2-connected 신장 부분그래프</span>
+              <span class="layer-meta">절단점이 없도록 변을 추가</span>
             </span>
             <span class="swatch biconnected"></span>
           </label>
@@ -563,12 +577,12 @@
         <div class="field">
           <div class="field-label">알고리즘 파라미터</div>
           <div class="parameter-panel">
-            <div class="parameter-row">
+            <div id="t-parameter-row" class="parameter-row">
               <label for="t-value">t 값</label>
               <input id="t-value" type="range" min="1.1" max="3.0" step="0.1" value="1.5">
               <span id="t-value-label" class="weight-value">1.5</span>
             </div>
-            <div class="parameter-row">
+            <div id="degree-parameter-row" class="parameter-row">
               <label for="degree-value">최대 차수</label>
               <input id="degree-value" type="range" min="2" max="8" step="1" value="4">
               <span id="degree-value-label" class="weight-value">4</span>
@@ -581,9 +595,9 @@
         <div class="field">
           <label class="field-label" for="basemap-select">지도 선택</label>
           <select id="basemap-select">
-            <option value="vworldBase">VWorld 일반지도</option>
-            <option value="vworldSatellite">VWorld 위성지도</option>
-            <option value="osmBase">OpenStreetMap</option>
+            <option value="vworldBase">브이월드 일반지도</option>
+            <option value="vworldSatellite">브이월드 위성지도</option>
+            <option value="osmBase">오픈스트리트맵</option>
           </select>
         </div>
         <div class="field">
@@ -596,7 +610,7 @@
           <div class="field-label">구조 지표</div>
           <div class="summary-grid">
             <div class="metric-panel">
-              <div class="metric-title">기본 graph</div>
+              <div class="metric-title">기본 그래프</div>
               <div class="metric-row"><div class="metric-key">변 수</div><div id="graph-count" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">총 가중치</div><div id="graph-weight-sum" class="metric-value">-</div></div>
               <div class="metric-row"><div class="metric-key">최대 비용 우회율</div><div id="graph-detour" class="metric-value">-</div></div>
@@ -621,7 +635,7 @@
         </div>
         <div class="field">
           <div class="field-label">선택한 경로</div>
-          <div id="detail-box" class="detail-box">지도 위 경로를 클릭하면 pair ID와 비용 정보를 확인할 수 있습니다.</div>
+          <div id="detail-box" class="detail-box">지도 위 경로를 클릭하면 쌍 ID와 비용 정보를 확인할 수 있습니다.</div>
         </div>
       </div>
     </aside>
@@ -656,19 +670,20 @@
       fadeAnimation: false,
       markerZoomAnimation: false,
     });
+    map.attributionControl.setPrefix("");
 
     const baseLayers = {
       vworldBase: L.tileLayer("https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        attribution: '&copy; <a href="https://www.vworld.kr/">VWorld</a>',
+        attribution: '&copy; <a href="https://www.vworld.kr/">브이월드</a>',
       }),
       vworldSatellite: L.tileLayer("https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{y}.jpeg", {
         maxZoom: 19,
-        attribution: '&copy; <a href="https://www.vworld.kr/">VWorld</a>',
+        attribution: '&copy; <a href="https://www.vworld.kr/">브이월드</a>',
       }),
       osmBase: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 20,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">오픈스트리트맵</a>',
       }),
     };
     baseLayers.vworldBase.addTo(map);
@@ -676,13 +691,15 @@
     const graphFeatures = routeData.features;
     let activeFeatures = [];
     let appliedMode = "graph";
-    let appliedLabel = "기본 graph";
+    let appliedLabel = "기본 그래프";
     const detailBox = document.getElementById("detail-box");
     const weightSummary = document.getElementById("weight-summary");
     const tValueInput = document.getElementById("t-value");
     const tValueLabel = document.getElementById("t-value-label");
+    const tParameterRow = document.getElementById("t-parameter-row");
     const degreeValueInput = document.getElementById("degree-value");
     const degreeValueLabel = document.getElementById("degree-value-label");
+    const degreeParameterRow = document.getElementById("degree-parameter-row");
     const weightValueElements = {
       distance: document.getElementById("weight-distance-value"),
       lane: document.getElementById("weight-lane-value"),
@@ -766,7 +783,7 @@
     }
 
     const graphLayer = makeLayer(graphFeatures, {
-      name: "기본 graph",
+      name: "기본 그래프",
       style: {
         color: "#64748b",
         weight: 1.05,
@@ -832,6 +849,16 @@
       });
       tValueLabel.textContent = Number(tValueInput.value).toFixed(1);
       degreeValueLabel.textContent = String(Number(degreeValueInput.value));
+    }
+
+    function setParameterAvailability() {
+      const mode = selectedMode();
+      const tEnabled = mode === "tspanner";
+      const degreeEnabled = mode === "degree";
+      tValueInput.disabled = !tEnabled;
+      degreeValueInput.disabled = !degreeEnabled;
+      tParameterRow.classList.toggle("disabled", !tEnabled);
+      degreeParameterRow.classList.toggle("disabled", !degreeEnabled);
     }
 
     function lanePenalty(lanes) {
@@ -1129,11 +1156,11 @@
     }
 
     const modeConfig = {
-      graph: { label: "기본 graph", color: "#64748b", weight: 1.35, opacity: 0.42, casing: false },
-      mst: { label: "최소신장수형도", color: "#0284c7", weight: 7.5, opacity: 0.95, casing: true },
+      graph: { label: "기본 그래프", color: "#64748b", weight: 1.35, opacity: 0.42, casing: false },
+      mst: { label: "MST", color: "#0284c7", weight: 7.5, opacity: 0.95, casing: true },
       tspanner: { label: "t-스패너", color: "#16a34a", weight: 6.2, opacity: 0.92, casing: true },
-      degree: { label: "차수 제한 신장트리", color: "#c2410c", weight: 6.6, opacity: 0.93, casing: true },
-      biconnected: { label: "2-연결 신장 부분그래프", color: "#7c3aed", weight: 6.4, opacity: 0.9, casing: true },
+      degree: { label: "차수 제한 신장수형도", color: "#c2410c", weight: 6.6, opacity: 0.93, casing: true },
+      biconnected: { label: "2-connected 신장 부분그래프", color: "#7c3aed", weight: 6.4, opacity: 0.9, casing: true },
     };
 
     function rebuildActiveLayers() {
@@ -1206,7 +1233,10 @@
     }
 
     document.querySelectorAll('input[name="display-mode"]').forEach((input) => {
-      input.addEventListener("change", updateInputLabels);
+      input.addEventListener("change", () => {
+        updateInputLabels();
+        setParameterAvailability();
+      });
     });
     document.querySelectorAll(".weight-input").forEach((input) => {
       input.addEventListener("input", updateInputLabels);
@@ -1225,11 +1255,13 @@
     });
     document.getElementById("fit-mst-button").addEventListener("click", () => {
       document.querySelector('input[name="display-mode"][value="mst"]').checked = true;
+      setParameterAvailability();
       drawSelectedMode();
       map.fitBounds(activeLayer.getBounds(), { padding: [24, 24], animate: false });
     });
 
     updateInputLabels();
+    setParameterAvailability();
     drawSelectedMode();
     setTimeout(() => map.invalidateSize(), 0);
   </script>
